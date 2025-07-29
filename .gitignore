@@ -209,4 +209,4 @@ __marimo__/
 # Models
 #  Models are large files that can be used in AI applications. They are often stored in
 #  separate directories to avoid committing large binary files to version control.
-models/
+stt/
