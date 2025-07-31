@@ -4,7 +4,8 @@ from PySide6.QtCore import QObject, Signal, Slot, QTimer
 from rapidfuzz import fuzz
 
 from app.core.g2p.base import G2PConverter
-from app.models.models import Cue, TranscriptPiece
+from app.models.models import Cue
+from app.core.stt.base import TranscriptPiece
 from app.core.player import SubtitlePlayer
 from app.core.stt.base import STTEngine
 

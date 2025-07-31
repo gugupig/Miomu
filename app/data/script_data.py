@@ -52,3 +52,37 @@ class ScriptData(QObject):
         
         print(f"[*] Successfully loaded and processed {len(self.cues)} cues.")
         return True
+        
+    def save_to_file(self, filepath: str | None = None) -> bool:
+        """
+        保存剧本数据到JSON文件
+        """
+        import json
+        target_path = filepath or self.filepath
+        
+        if not target_path:
+            raise ValueError("没有指定保存路径")
+            
+        try:
+            # 转换为JSON格式
+            cues_data = []
+            for cue in self.cues:
+                cues_data.append({
+                    "id": cue.id,
+                    "character": cue.character,
+                    "line": cue.line
+                })
+                
+            script_json = {"cues": cues_data}
+            
+            # 保存到文件
+            with open(target_path, 'w', encoding='utf-8') as f:
+                json.dump(script_json, f, ensure_ascii=False, indent=2)
+                
+            print(f"[*] Script saved to: {target_path}")
+            self.filepath = target_path
+            return True
+            
+        except Exception as e:
+            print(f"⚠️ Error saving script: {e}")
+            return False

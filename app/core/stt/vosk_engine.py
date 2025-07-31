@@ -106,19 +106,26 @@ class VoskEngine(STTEngine):
         self.q.put(None)                 # 哑元让线程安全退出
 
     # ---------- 数据入口 ----------
-    def feed(self, pcm_block: np.ndarray):
+    def feed(self, channel_id: int, pcm_block: np.ndarray):
         """
-        pcm_block: float32 ndarray, 单通道, 16-kHz.
+        接收声道ID和PCM数据块
+        
+        Args:
+            channel_id: 声道编号 (0-based)
+            pcm_block: float32 ndarray, 单通道, 16-kHz
         """
         if not self.running:
             return
         try:
-            int16_bytes = (pcm_block * 32767).astype(np.int16).tobytes()
-            self.q.put_nowait(int16_bytes)
+            # 目前只处理指定声道（通常是channel 0）
+            if channel_id == self.channel_id:
+                int16_bytes = (pcm_block * 32767).astype(np.int16).tobytes()
+                self.q.put_nowait(int16_bytes)
         except queue.Full:
             # 丢弃最旧帧以保持实时性
             try:
                 self.q.get_nowait()
+                int16_bytes = (pcm_block * 32767).astype(np.int16).tobytes()
                 self.q.put_nowait(int16_bytes)
             except queue.Empty:
                 pass

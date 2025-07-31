@@ -57,9 +57,14 @@ class STTEngine(QObject, metaclass=_STTMeta):
 
     # -------- 数据入口 --------
     @abstractmethod
-    def feed(self, pcm_block) -> None:
+    def feed(self, channel_id: int, pcm_block) -> None:
         """
-        接收 1D numpy ndarray 或 bytes，采样率 = 16 kHz，float32 [-1,1]。
+        接收声道ID和PCM数据块。
+        
+        Args:
+            channel_id: 声道编号 (0-based)
+            pcm_block: 1D numpy ndarray，采样率 = 16 kHz，float32 [-1,1]
+            
         由 AudioHub 在回调线程里调用；必须 **非阻塞**（把数据放进内部队列）。
         """
         ...

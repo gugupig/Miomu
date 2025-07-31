@@ -48,14 +48,20 @@ class WhisperEngine(STTEngine):
         self.block_q.put(None)
 
     # ---------- 数据入口 ----------
-    def feed(self, pcm_block: np.ndarray):
+    def feed(self, channel_id: int, pcm_block: np.ndarray):
         """
-        pcm_block: float32 ndarray, 单声道 16 kHz
+        接收声道ID和PCM数据块
+        
+        Args:
+            channel_id: 声道编号 (0-based)  
+            pcm_block: float32 ndarray, 单声道 16 kHz
         """
         if not self.running:
             return
         try:
-            self.block_q.put_nowait(pcm_block.copy())
+            # 目前只处理指定声道（通常是channel 0）
+            if channel_id == self.channel_id:
+                self.block_q.put_nowait(pcm_block.copy())
         except queue.Full:
             # 丢掉最旧块保持实时
             try:
