@@ -213,3 +213,6 @@ stt/
 
 # Scripts
 scripts/
+
+# Tests
+test/
