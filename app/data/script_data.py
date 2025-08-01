@@ -67,11 +67,26 @@ class ScriptData(QObject):
             # 转换为JSON格式
             cues_data = []
             for cue in self.cues:
-                cues_data.append({
+                cue_data = {
                     "id": cue.id,
                     "character": cue.character,
                     "line": cue.line
-                })
+                }
+                
+                # 添加新字段（如果存在且非默认值）
+                if hasattr(cue, 'character_cue_index') and cue.character_cue_index != -1:
+                    cue_data["character_cue_index"] = cue.character_cue_index
+                    
+                if hasattr(cue, 'translation') and cue.translation:
+                    cue_data["translation"] = cue.translation
+                    
+                if hasattr(cue, 'notes') and cue.notes:
+                    cue_data["notes"] = cue.notes
+                    
+                if hasattr(cue, 'style') and cue.style != "default":
+                    cue_data["style"] = cue.style
+                
+                cues_data.append(cue_data)
                 
             script_json = {"cues": cues_data}
             

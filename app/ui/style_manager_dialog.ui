@@ -1,0 +1,380 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>StyleManagerDialog</class>
+ <widget class="QDialog" name="StyleManagerDialog">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>700</width>
+    <height>500</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>样式管理</string>
+  </property>
+  <property name="modal">
+   <bool>true</bool>
+  </property>
+  <layout class="QVBoxLayout" name="verticalLayout">
+   <item>
+    <widget class="QLabel" name="instructionLabel">
+     <property name="text">
+      <string>管理字幕样式和角色颜色配置。可以创建、编辑和删除样式模板。</string>
+     </property>
+     <property name="wordWrap">
+      <bool>true</bool>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <widget class="QTabWidget" name="tabWidget">
+     <property name="currentIndex">
+      <number>0</number>
+     </property>
+     <widget class="QWidget" name="characterTab">
+      <attribute name="title">
+       <string>角色颜色</string>
+      </attribute>
+      <layout class="QVBoxLayout" name="characterLayout">
+       <item>
+        <layout class="QHBoxLayout" name="characterToolbarLayout">
+         <item>
+          <widget class="QPushButton" name="addCharacterButton">
+           <property name="text">
+            <string>添加角色</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QPushButton" name="removeCharacterButton">
+           <property name="enabled">
+            <bool>false</bool>
+           </property>
+           <property name="text">
+            <string>删除角色</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QPushButton" name="importCharactersButton">
+           <property name="text">
+            <string>从剧本导入角色</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <spacer name="horizontalSpacer">
+           <property name="orientation">
+            <enum>Qt::Orientation::Horizontal</enum>
+           </property>
+           <property name="sizeHint" stdset="0">
+            <size>
+             <width>40</width>
+             <height>20</height>
+            </size>
+           </property>
+          </spacer>
+         </item>
+        </layout>
+       </item>
+       <item>
+        <widget class="QTableWidget" name="characterTable">
+         <property name="columnCount">
+          <number>4</number>
+         </property>
+         <property name="selectionBehavior">
+          <enum>QAbstractItemView::SelectionBehavior::SelectRows</enum>
+         </property>
+         <attribute name="horizontalHeaderVisible">
+          <bool>true</bool>
+         </attribute>
+         <attribute name="verticalHeaderVisible">
+          <bool>false</bool>
+         </attribute>
+         <column>
+          <property name="text">
+           <string>角色名称</string>
+          </property>
+         </column>
+         <column>
+          <property name="text">
+           <string>颜色预览</string>
+          </property>
+         </column>
+         <column>
+          <property name="text">
+           <string>颜色值</string>
+          </property>
+         </column>
+         <column>
+          <property name="text">
+           <string>台词数量</string>
+          </property>
+         </column>
+        </widget>
+       </item>
+      </layout>
+     </widget>
+     <widget class="QWidget" name="styleTab">
+      <attribute name="title">
+       <string>字幕样式</string>
+      </attribute>
+      <layout class="QVBoxLayout" name="styleLayout">
+       <item>
+        <layout class="QHBoxLayout" name="styleToolbarLayout">
+         <item>
+          <widget class="QPushButton" name="addStyleButton">
+           <property name="text">
+            <string>添加样式</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QPushButton" name="removeStyleButton">
+           <property name="enabled">
+            <bool>false</bool>
+           </property>
+           <property name="text">
+            <string>删除样式</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QPushButton" name="duplicateStyleButton">
+           <property name="enabled">
+            <bool>false</bool>
+           </property>
+           <property name="text">
+            <string>复制样式</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <spacer name="horizontalSpacer2">
+           <property name="orientation">
+            <enum>Qt::Orientation::Horizontal</enum>
+           </property>
+           <property name="sizeHint" stdset="0">
+            <size>
+             <width>40</width>
+             <height>20</height>
+            </size>
+           </property>
+          </spacer>
+         </item>
+        </layout>
+       </item>
+       <item>
+        <layout class="QHBoxLayout" name="styleContentLayout">
+         <item>
+          <widget class="QListWidget" name="styleListWidget">
+           <property name="maximumSize">
+            <size>
+             <width>200</width>
+             <height>16777215</height>
+            </size>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QGroupBox" name="stylePropertiesGroupBox">
+           <property name="title">
+            <string>样式属性</string>
+           </property>
+           <layout class="QFormLayout" name="stylePropertiesLayout">
+            <item row="0" column="0">
+             <widget class="QLabel" name="styleNameLabel">
+              <property name="text">
+               <string>样式名称：</string>
+              </property>
+             </widget>
+            </item>
+            <item row="0" column="1">
+             <widget class="QLineEdit" name="styleNameLineEdit"/>
+            </item>
+            <item row="1" column="0">
+             <widget class="QLabel" name="fontFamilyLabel">
+              <property name="text">
+               <string>字体：</string>
+              </property>
+             </widget>
+            </item>
+            <item row="1" column="1">
+             <widget class="QFontComboBox" name="fontFamilyComboBox"/>
+            </item>
+            <item row="2" column="0">
+             <widget class="QLabel" name="fontSizeLabel">
+              <property name="text">
+               <string>字体大小：</string>
+              </property>
+             </widget>
+            </item>
+            <item row="2" column="1">
+             <widget class="QSpinBox" name="fontSizeSpinBox">
+              <property name="minimum">
+               <number>8</number>
+              </property>
+              <property name="maximum">
+               <number>72</number>
+              </property>
+              <property name="value">
+               <number>16</number>
+              </property>
+             </widget>
+            </item>
+            <item row="3" column="0">
+             <widget class="QLabel" name="fontColorLabel">
+              <property name="text">
+               <string>字体颜色：</string>
+              </property>
+             </widget>
+            </item>
+            <item row="3" column="1">
+             <layout class="QHBoxLayout" name="fontColorLayout">
+              <item>
+               <widget class="QPushButton" name="fontColorButton">
+                <property name="text">
+                 <string>选择颜色</string>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QLabel" name="fontColorPreview">
+                <property name="text">
+                 <string>预览</string>
+                </property>
+                <property name="styleSheet">
+                 <string>QLabel { border: 1px solid gray; padding: 5px; }</string>
+                </property>
+               </widget>
+              </item>
+             </layout>
+            </item>
+            <item row="4" column="0">
+             <widget class="QLabel" name="backgroundColorLabel">
+              <property name="text">
+               <string>背景颜色：</string>
+              </property>
+             </widget>
+            </item>
+            <item row="4" column="1">
+             <layout class="QHBoxLayout" name="backgroundColorLayout">
+              <item>
+               <widget class="QPushButton" name="backgroundColorButton">
+                <property name="text">
+                 <string>选择颜色</string>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QLabel" name="backgroundColorPreview">
+                <property name="text">
+                 <string>预览</string>
+                </property>
+                <property name="styleSheet">
+                 <string>QLabel { border: 1px solid gray; padding: 5px; }</string>
+                </property>
+               </widget>
+              </item>
+             </layout>
+            </item>
+            <item row="5" column="0">
+             <widget class="QLabel" name="boldLabel">
+              <property name="text">
+               <string>粗体：</string>
+              </property>
+             </widget>
+            </item>
+            <item row="5" column="1">
+             <widget class="QCheckBox" name="boldCheckBox"/>
+            </item>
+            <item row="6" column="0">
+             <widget class="QLabel" name="italicLabel">
+              <property name="text">
+               <string>斜体：</string>
+              </property>
+             </widget>
+            </item>
+            <item row="6" column="1">
+             <widget class="QCheckBox" name="italicCheckBox"/>
+            </item>
+           </layout>
+          </widget>
+         </item>
+        </layout>
+       </item>
+       <item>
+        <widget class="QGroupBox" name="previewGroupBox">
+         <property name="title">
+          <string>样式预览</string>
+         </property>
+         <layout class="QVBoxLayout" name="previewLayout">
+          <item>
+           <widget class="QLabel" name="stylePreviewLabel">
+            <property name="text">
+             <string>这是一段示例字幕文本，用于预览样式效果。</string>
+            </property>
+            <property name="alignment">
+             <set>Qt::AlignmentFlag::AlignCenter</set>
+            </property>
+            <property name="styleSheet">
+             <string>QLabel { border: 1px solid gray; padding: 10px; min-height: 40px; }</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+      </layout>
+     </widget>
+    </widget>
+   </item>
+   <item>
+    <widget class="QDialogButtonBox" name="buttonBox">
+     <property name="orientation">
+      <enum>Qt::Orientation::Horizontal</enum>
+     </property>
+     <property name="standardButtons">
+      <set>QDialogButtonBox::StandardButton::Apply|QDialogButtonBox::StandardButton::Cancel|QDialogButtonBox::StandardButton::Ok</set>
+     </property>
+    </widget>
+   </item>
+  </layout>
+ </widget>
+ <resources/>
+ <connections>
+  <connection>
+   <sender>buttonBox</sender>
+   <signal>accepted()</signal>
+   <receiver>StyleManagerDialog</receiver>
+   <slot>accept()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>248</x>
+     <y>254</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>157</x>
+     <y>274</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>buttonBox</sender>
+   <signal>rejected()</signal>
+   <receiver>StyleManagerDialog</receiver>
+   <slot>reject()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>316</x>
+     <y>260</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>286</x>
+     <y>274</y>
+    </hint>
+   </hints>
+  </connection>
+ </connections>
+</ui>

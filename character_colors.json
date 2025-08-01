@@ -1,0 +1,37 @@
+{
+  "character_colors": {
+    "旁白": {
+      "color": "#808080",
+      "is_system": true
+    },
+    "未知角色": {
+      "color": "#000000",
+      "is_system": true
+    },
+    "L’HOMME": {
+      "color": "#FF6B6B",
+      "is_system": false
+    },
+    "LE_PÊCHEUR": {
+      "color": "#4ECDC4",
+      "is_system": false
+    },
+    "CHIEN": {
+      "color": "#45B7D1",
+      "is_system": false
+    },
+    "CHASSEUR": {
+      "color": "#96CEB4",
+      "is_system": false
+    },
+    "LE_CAPITAINE": {
+      "color": "#FECA57",
+      "is_system": false
+    },
+    "MOUSSAILLON": {
+      "color": "#FF9FF3",
+      "is_system": false
+    }
+  },
+  "color_index": 6
+}

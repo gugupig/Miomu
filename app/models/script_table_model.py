@@ -1,13 +1,14 @@
 """
 ScriptTableModel - 专门用于编辑模式的表格模型
-提供完整的 MVC 分离，支持复杂编辑功能
+提供完整的 MVC 分离，支持复杂编辑功能和角色颜色显示
 """
 import logging
-from typing import List, Optional, Any, Union
+from typing import List, Optional, Any, Union, Dict, Set
 from PySide6.QtCore import QAbstractTableModel, Qt, QModelIndex, QPersistentModelIndex, Signal
 from PySide6.QtGui import QBrush, QColor, QFont
 
 from app.models.models import Cue
+from app.utils.character_color_manager import CharacterColorManager
 
 
 class ScriptTableModel(QAbstractTableModel):
@@ -31,15 +32,32 @@ class ScriptTableModel(QAbstractTableModel):
     COLUMN_NAMES = ["ID", "角色", "台词", "音素"]
     COLUMN_COUNT = len(COLUMN_NAMES)
     
-    def __init__(self, cues: Optional[List[Cue]] = None, parent=None):
+    def __init__(self, cues: Optional[List[Cue]] = None, character_color_manager: Optional[CharacterColorManager] = None, parent=None):
         super().__init__(parent)
         self._cues: List[Cue] = cues or []
         self._original_cues: List[Cue] = []  # 用于撤销功能
         self._modified = False
         self._read_only_columns = {self.COLUMN_ID, self.COLUMN_PHONEMES}  # 只读列
         
+        # 角色颜色管理器
+        self.character_color_manager = character_color_manager
+        if self.character_color_manager:
+            self.character_color_manager.colors_changed.connect(self._on_colors_changed)
+        
+        # 新增：支持动态列
+        self.extra_columns: Dict[str, List[str]] = {}  # 列名 -> 数据列表
+        self.base_columns = ["ID", "角色", "台词", "音素"]
+        
+        # 新增：高亮支持
+        self._highlighted_rows: Set[int] = set()
+        
+        # 角色筛选
+        self._filtered_characters: Optional[Set[str]] = None
+        self._visible_rows: List[int] = []  # 可见行索引
+        
         # 保存原始数据用于撤销
         self.save_snapshot()
+        self._update_visible_rows()
         
     def save_snapshot(self):
         """保存当前状态的快照，用于撤销功能"""
@@ -48,7 +66,11 @@ class ScriptTableModel(QAbstractTableModel):
                 id=cue.id,
                 character=cue.character,
                 line=cue.line,
-                phonemes=getattr(cue, 'phonemes', '')
+                phonemes=getattr(cue, 'phonemes', ''),
+                character_cue_index=getattr(cue, 'character_cue_index', -1),
+                translation=getattr(cue, 'translation', {}).copy(),  # 深拷贝字典
+                notes=getattr(cue, 'notes', ''),
+                style=getattr(cue, 'style', 'default')
             ) for cue in self._cues
         ]
         
@@ -61,7 +83,11 @@ class ScriptTableModel(QAbstractTableModel):
                     id=cue.id,
                     character=cue.character,
                     line=cue.line,
-                    phonemes=getattr(cue, 'phonemes', '')
+                    phonemes=getattr(cue, 'phonemes', ''),
+                    character_cue_index=getattr(cue, 'character_cue_index', -1),
+                    translation=getattr(cue, 'translation', {}).copy(),  # 深拷贝字典
+                    notes=getattr(cue, 'notes', ''),
+                    style=getattr(cue, 'style', 'default')
                 ) for cue in self._original_cues
             ]
             self._modified = False
@@ -92,16 +118,16 @@ class ScriptTableModel(QAbstractTableModel):
     # === QAbstractTableModel 必需方法 ===
     
     def rowCount(self, parent: Union[QModelIndex, QPersistentModelIndex] = QModelIndex()) -> int:
-        """返回行数"""
+        """返回行数（考虑筛选）"""
         if parent.isValid():
             return 0
-        return len(self._cues)
+        return len(self._visible_rows) if self._filtered_characters is not None else len(self._cues)
         
     def columnCount(self, parent: Union[QModelIndex, QPersistentModelIndex] = QModelIndex()) -> int:
         """返回列数"""
         if parent.isValid():
             return 0
-        return self.COLUMN_COUNT
+        return len(self.base_columns) + len(self.extra_columns)
         
     def data(self, index: Union[QModelIndex, QPersistentModelIndex], role: int = Qt.ItemDataRole.DisplayRole) -> Any:
         """返回指定位置的数据"""
@@ -109,30 +135,64 @@ class ScriptTableModel(QAbstractTableModel):
             return None
             
         row, col = index.row(), index.column()
-        if not (0 <= row < len(self._cues) and 0 <= col < self.COLUMN_COUNT):
+        if not (0 <= row < self.rowCount() and 0 <= col < self.columnCount()):
+            return None
+        
+        # 转换为实际行索引（考虑筛选）
+        actual_row = self.get_actual_row(row) if self._filtered_characters is not None else row
+        if actual_row < 0 or actual_row >= len(self._cues):
             return None
             
-        cue = self._cues[row]
+        cue = self._cues[actual_row]
         
         if role == Qt.ItemDataRole.DisplayRole or role == Qt.ItemDataRole.EditRole:
-            if col == self.COLUMN_ID:
-                return str(cue.id)
-            elif col == self.COLUMN_CHARACTER:
-                return cue.character
-            elif col == self.COLUMN_LINE:
-                return cue.line
-            elif col == self.COLUMN_PHONEMES:
-                return getattr(cue, 'phonemes', '')
-                
+            if col < len(self.base_columns):
+                # 基础列
+                if col == self.COLUMN_ID:
+                    return str(cue.id)
+                elif col == self.COLUMN_CHARACTER:
+                    return cue.character or ""  # 处理 None 的情况
+                elif col == self.COLUMN_LINE:
+                    return cue.line
+                elif col == self.COLUMN_PHONEMES:
+                    return getattr(cue, 'phonemes', '')
+            else:
+                # 额外语言列
+                extra_index = col - len(self.base_columns)
+                extra_keys = list(self.extra_columns.keys())
+                if extra_index < len(extra_keys):
+                    language = extra_keys[extra_index]
+                    return self.extra_columns[language][row] if row < len(self.extra_columns[language]) else ""
+                    
         elif role == Qt.ItemDataRole.BackgroundRole:
+            # 高亮显示
+            if self.is_row_highlighted(actual_row):
+                return QBrush(QColor(100, 200, 100, 100))
             # 只读列使用不同背景色
-            if col in self._read_only_columns:
+            if col in self._read_only_columns and col < len(self.base_columns):
                 return QBrush(QColor(240, 240, 240))
+                
+        elif role == Qt.ItemDataRole.ForegroundRole:
+            # 角色颜色显示
+            if self.character_color_manager and col == self.COLUMN_CHARACTER:
+                character = cue.character
+                color = self.character_color_manager.get_character_color(character)
+                return QBrush(QColor(color))
+            # 为台词列也应用角色颜色（可选）
+            elif self.character_color_manager and col == self.COLUMN_LINE:
+                character = cue.character
+                color = self.character_color_manager.get_character_color(character)
+                return QBrush(QColor(color))
                 
         elif role == Qt.ItemDataRole.FontRole:
             # 音素列使用等宽字体
             if col == self.COLUMN_PHONEMES:
                 font = QFont("Consolas", 9)
+                return font
+            # 角色名称使用粗体
+            elif col == self.COLUMN_CHARACTER:
+                font = QFont()
+                font.setBold(True)
                 return font
                 
         elif role == Qt.ItemDataRole.ToolTipRole:
@@ -153,7 +213,7 @@ class ScriptTableModel(QAbstractTableModel):
             return False
             
         row, col = index.row(), index.column()
-        if not (0 <= row < len(self._cues) and 0 <= col < self.COLUMN_COUNT):
+        if not (0 <= row < len(self._cues) and 0 <= col < self.columnCount()):
             return False
             
         # 检查只读列
@@ -170,14 +230,32 @@ class ScriptTableModel(QAbstractTableModel):
             
         # 更新数据
         try:
-            if col == self.COLUMN_CHARACTER:
-                old_value = cue.character
-                cue.character = new_value
-            elif col == self.COLUMN_LINE:
-                old_value = cue.line
-                cue.line = new_value
+            if col < len(self.base_columns):
+                # 基础列
+                if col == self.COLUMN_CHARACTER:
+                    old_value = cue.character
+                    cue.character = new_value
+                elif col == self.COLUMN_LINE:
+                    old_value = cue.line
+                    cue.line = new_value
+                else:
+                    return False
             else:
-                return False
+                # 额外语言列
+                extra_index = col - len(self.base_columns)
+                languages = list(self.extra_columns.keys())
+                if extra_index < len(languages):
+                    language = languages[extra_index]
+                    if row < len(self.extra_columns[language]):
+                        old_value = self.extra_columns[language][row]
+                    else:
+                        # 扩展列表到所需长度
+                        while len(self.extra_columns[language]) <= row:
+                            self.extra_columns[language].append("")
+                        old_value = ""
+                    self.extra_columns[language][row] = new_value
+                else:
+                    return False
                 
             # 标记数据已修改
             if old_value != new_value:
@@ -195,11 +273,15 @@ class ScriptTableModel(QAbstractTableModel):
     def headerData(self, section: int, orientation: Qt.Orientation, role: int = Qt.ItemDataRole.DisplayRole) -> Any:
         """返回表头数据"""
         if orientation == Qt.Orientation.Horizontal and role == Qt.ItemDataRole.DisplayRole:
-            if 0 <= section < len(self.COLUMN_NAMES):
-                return self.COLUMN_NAMES[section]
+            if section < len(self.base_columns):
+                return self.base_columns[section]
+            else:
+                extra_index = section - len(self.base_columns)
+                extra_keys = list(self.extra_columns.keys())
+                if extra_index < len(extra_keys):
+                    return extra_keys[extra_index]
         elif orientation == Qt.Orientation.Vertical and role == Qt.ItemDataRole.DisplayRole:
             return str(section + 1)  # 行号从1开始
-            
         return None
         
     def flags(self, index: Union[QModelIndex, QPersistentModelIndex]) -> Qt.ItemFlag:
@@ -229,7 +311,7 @@ class ScriptTableModel(QAbstractTableModel):
             if column == self.COLUMN_ID:
                 self._cues.sort(key=lambda cue: cue.id, reverse=reverse)
             elif column == self.COLUMN_CHARACTER:
-                self._cues.sort(key=lambda cue: cue.character, reverse=reverse)
+                self._cues.sort(key=lambda cue: cue.character or "", reverse=reverse)
             elif column == self.COLUMN_LINE:
                 self._cues.sort(key=lambda cue: cue.line, reverse=reverse)
             elif column == self.COLUMN_PHONEMES:
@@ -338,7 +420,7 @@ class ScriptTableModel(QAbstractTableModel):
         try:
             original_cue = self._cues[index]
             return self.add_cue(
-                character=original_cue.character,
+                character=original_cue.character or "",  # 处理 None 值
                 line=f"{original_cue.line} (副本)",
                 index=index + 1
             )
@@ -419,7 +501,7 @@ class ScriptTableModel(QAbstractTableModel):
                 match_found = False
                 
                 if column is None or column == self.COLUMN_CHARACTER:
-                    if text_lower in cue.character.lower():
+                    if cue.character and text_lower in cue.character.lower():  # 检查 None
                         match_found = True
                         
                 if column is None or column == self.COLUMN_LINE:
@@ -475,3 +557,163 @@ class ScriptTableModel(QAbstractTableModel):
             
         except Exception as e:
             logging.error(f"刷新音素失败: {e}")
+            
+    # === 多语言支持方法 ===
+    
+    def add_language_column(self, language_name: str, translations: List[str] | None = None) -> bool:
+        """添加新语言列"""
+        if language_name in self.extra_columns:
+            return False
+            
+        # 初始化翻译数据
+        if translations is None:
+            translations = [""] * len(self._cues)
+        elif len(translations) != len(self._cues):
+            # 调整长度匹配
+            translations = translations[:len(self._cues)] + [""] * max(0, len(self._cues) - len(translations))
+            
+        self.beginInsertColumns(QModelIndex(), self.columnCount(), self.columnCount())
+        self.extra_columns[language_name] = translations
+        self.endInsertColumns()
+        
+        self._modified = True
+        self.dataModified.emit()
+        return True
+        
+    def remove_language_column(self, language_name: str) -> bool:
+        """移除语言列"""
+        if language_name not in self.extra_columns:
+            return False
+            
+        # 找到列索引
+        column_index = len(self.base_columns) + list(self.extra_columns.keys()).index(language_name)
+                      
+        self.beginRemoveColumns(QModelIndex(), column_index, column_index)
+        del self.extra_columns[language_name]
+        self.endRemoveColumns()
+        
+        self._modified = True
+        self.dataModified.emit()
+        return True
+        
+    def get_language_columns(self) -> List[str]:
+        """获取所有语言列名"""
+        return list(self.extra_columns.keys())
+        
+    def set_translation(self, row: int, language: str, translation: str) -> bool:
+        """设置指定行和语言的翻译"""
+        if language not in self.extra_columns or row < 0 or row >= len(self._cues):
+            return False
+            
+        self.extra_columns[language][row] = translation
+        
+        # 发射数据变化信号
+        column_index = len(self.base_columns) + list(self.extra_columns.keys()).index(language)
+        index = self.index(row, column_index)
+        self.dataChanged.emit(index, index, [Qt.ItemDataRole.DisplayRole])
+        
+        self._modified = True
+        self.dataModified.emit()
+        return True
+        
+    def get_translation(self, row: int, language: str) -> str:
+        """获取指定行和语言的翻译"""
+        if language not in self.extra_columns or row < 0 or row >= len(self._cues):
+            return ""
+        return self.extra_columns[language][row]
+    
+    # === 角色颜色相关方法 ===
+    
+    def set_character_color_manager(self, manager: CharacterColorManager):
+        """设置角色颜色管理器"""
+        if self.character_color_manager:
+            self.character_color_manager.colors_changed.disconnect(self._on_colors_changed)
+            
+        self.character_color_manager = manager
+        if self.character_color_manager:
+            self.character_color_manager.colors_changed.connect(self._on_colors_changed)
+            
+        # 重新渲染表格
+        self.layoutChanged.emit()
+    
+    def _on_colors_changed(self):
+        """颜色配置变化时的处理"""
+        # 重新渲染角色列和台词列
+        if self.rowCount() > 0:
+            top_left = self.index(0, self.COLUMN_CHARACTER)
+            bottom_right = self.index(self.rowCount() - 1, self.COLUMN_LINE)
+            self.dataChanged.emit(top_left, bottom_right, [Qt.ItemDataRole.ForegroundRole])
+    
+    # === 角色筛选相关方法 ===
+    
+    def set_character_filter(self, characters: Optional[Set[str]]):
+        """设置角色筛选器"""
+        self._filtered_characters = characters
+        self._update_visible_rows()
+        self.layoutChanged.emit()
+    
+    def clear_character_filter(self):
+        """清除角色筛选器"""
+        self._filtered_characters = None
+        self._update_visible_rows()
+        self.layoutChanged.emit()
+    
+    def _update_visible_rows(self):
+        """更新可见行列表"""
+        if self._filtered_characters is None:
+            # 没有筛选，显示所有行
+            self._visible_rows = list(range(len(self._cues)))
+        else:
+            # 根据角色筛选
+            self._visible_rows = []
+            for i, cue in enumerate(self._cues):
+                if cue.character in self._filtered_characters or cue.character is None:
+                    self._visible_rows.append(i)
+    
+    def get_actual_row(self, visible_row: int) -> int:
+        """将可见行索引转换为实际行索引"""
+        if 0 <= visible_row < len(self._visible_rows):
+            return self._visible_rows[visible_row]
+        return -1
+    
+    def get_visible_row(self, actual_row: int) -> int:
+        """将实际行索引转换为可见行索引"""
+        try:
+            return self._visible_rows.index(actual_row)
+        except ValueError:
+            return -1
+    
+    def get_all_characters(self) -> Set[str]:
+        """获取所有角色名称"""
+        characters = set()
+        for cue in self._cues:
+            if cue.character:
+                characters.add(cue.character)
+        return characters
+        
+    # === 高亮支持方法 ===
+    
+    def highlight_row(self, row: int):
+        """高亮指定行"""
+        if 0 <= row < len(self._cues):
+            self._highlighted_rows.add(row)
+            # 通知视图更新整行
+            left_index = self.index(row, 0)
+            right_index = self.index(row, self.columnCount() - 1)
+            self.dataChanged.emit(left_index, right_index, [Qt.ItemDataRole.BackgroundRole])
+            
+    def clear_highlighting(self):
+        """清除所有高亮"""
+        if self._highlighted_rows:
+            highlighted_rows = list(self._highlighted_rows)
+            self._highlighted_rows.clear()
+            
+            # 通知视图更新这些行
+            for row in highlighted_rows:
+                left_index = self.index(row, 0)
+                right_index = self.index(row, self.columnCount() - 1)
+                self.dataChanged.emit(left_index, right_index, [Qt.ItemDataRole.BackgroundRole])
+                
+    def is_row_highlighted(self, row: int) -> bool:
+        """检查行是否被高亮"""
+        return row in self._highlighted_rows
