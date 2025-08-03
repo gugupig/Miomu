@@ -21,6 +21,13 @@ from PySide6.QtWidgets import (QAbstractItemView, QApplication, QComboBox, QHBox
     QTabWidget, QTableView, QTextEdit, QVBoxLayout,
     QWidget)
 
+# 导入我们的多选组件
+try:
+    from app.ui.multi_select_combo import MultiSelectComboBox
+    _USE_MULTI_SELECT = True
+except ImportError:
+    _USE_MULTI_SELECT = False
+
 class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
         if not MainWindow.objectName():
@@ -134,9 +141,15 @@ class Ui_MainWindow(object):
 
         self.theaterToolbarLayout.addWidget(self.filterByCharacterButton)
 
-        self.languageComboBox = QComboBox(self.theaterTab)
-        self.languageComboBox.addItem("")
+        # 使用多选下拉菜单替换原来的单选下拉菜单
+        if _USE_MULTI_SELECT:
+            self.languageComboBox = MultiSelectComboBox(self.theaterTab)
+            self.languageComboBox.setPlaceholderText("选择投屏语言...")
+        else:
+            self.languageComboBox = QComboBox(self.theaterTab)
+            self.languageComboBox.addItem("")
         self.languageComboBox.setObjectName(u"languageComboBox")
+        # 初始时启用，运行时根据数据状态动态控制
         self.languageComboBox.setEnabled(False)
 
         self.theaterToolbarLayout.addWidget(self.languageComboBox)
@@ -257,30 +270,35 @@ class Ui_MainWindow(object):
     # setupUi
 
     def retranslateUi(self, MainWindow):
-        MainWindow.setWindowTitle(QCoreApplication.translate("MainWindow", u"Miomu - \u5267\u672c\u5bf9\u9f50\u63a7\u5236\u53f0", None))
-        self.loadScriptButton.setText(QCoreApplication.translate("MainWindow", u"\u52a0\u8f7d\u5267\u672c", None))
-        self.saveScriptButton.setText(QCoreApplication.translate("MainWindow", u"\u4fdd\u5b58\u5267\u672c", None))
-        self.addCueButton.setText(QCoreApplication.translate("MainWindow", u"\u6dfb\u52a0\u53f0\u8bcd", None))
-        self.deleteCueButton.setText(QCoreApplication.translate("MainWindow", u"\u5220\u9664\u53f0\u8bcd", None))
-        self.duplicateCueButton.setText(QCoreApplication.translate("MainWindow", u"\u590d\u5236\u53f0\u8bcd", None))
-        self.refreshPhonemesButton.setText(QCoreApplication.translate("MainWindow", u"\u5237\u65b0\u97f3\u7d20", None))
-        self.addLanguageButton.setText(QCoreApplication.translate("MainWindow", u"\u6dfb\u52a0\u8bed\u8a00", None))
-        self.removeLanguageButton.setText(QCoreApplication.translate("MainWindow", u"\u79fb\u9664\u8bed\u8a00", None))
-        self.manageStylesButton.setText(QCoreApplication.translate("MainWindow", u"\u7ba1\u7406\u6837\u5f0f", None))
-        self.tabWidget.setTabText(self.tabWidget.indexOf(self.editTab), QCoreApplication.translate("MainWindow", u"\u7f16\u8f91\u6a21\u5f0f", None))
-        self.loadScriptTheaterButton.setText(QCoreApplication.translate("MainWindow", u"\u52a0\u8f7d\u5267\u672c", None))
-        self.syncFromEditButton.setText(QCoreApplication.translate("MainWindow", u"\u540c\u6b65\u7f16\u8f91\u6a21\u5f0f\u6570\u636e", None))
-        self.filterByCharacterButton.setText(QCoreApplication.translate("MainWindow", u"\u6309\u89d2\u8272\u7b5b\u9009", None))
-        self.languageComboBox.setItemText(0, QCoreApplication.translate("MainWindow", u"\u539f\u59cb\u8bed\u8a00", None))
+        MainWindow.setWindowTitle(QCoreApplication.translate("MainWindow", u"Miomu - 剧本对齐控制台", None))
+        self.loadScriptButton.setText(QCoreApplication.translate("MainWindow", u"加载剧本", None))
+        self.saveScriptButton.setText(QCoreApplication.translate("MainWindow", u"保存剧本", None))
+        self.addCueButton.setText(QCoreApplication.translate("MainWindow", u"添加台词", None))
+        self.deleteCueButton.setText(QCoreApplication.translate("MainWindow", u"删除台词", None))
+        self.duplicateCueButton.setText(QCoreApplication.translate("MainWindow", u"复制台词", None))
+        self.refreshPhonemesButton.setText(QCoreApplication.translate("MainWindow", u"刷新音素", None))
+        self.addLanguageButton.setText(QCoreApplication.translate("MainWindow", u"添加语言", None))
+        self.removeLanguageButton.setText(QCoreApplication.translate("MainWindow", u"移除语言", None))
+        self.manageStylesButton.setText(QCoreApplication.translate("MainWindow", u"管理样式", None))
+        self.tabWidget.setTabText(self.tabWidget.indexOf(self.editTab), QCoreApplication.translate("MainWindow", u"编辑模式", None))
+        self.loadScriptTheaterButton.setText(QCoreApplication.translate("MainWindow", u"加载剧本", None))
+        self.syncFromEditButton.setText(QCoreApplication.translate("MainWindow", u"同步编辑模式数据", None))
+        self.filterByCharacterButton.setText(QCoreApplication.translate("MainWindow", u"按角色筛选", None))
+        
+        # 根据组件类型设置文本
+        if _USE_MULTI_SELECT and hasattr(self.languageComboBox, 'setPlaceholderText'):
+            self.languageComboBox.setPlaceholderText(QCoreApplication.translate("MainWindow", u"选择投屏语言...", None))
+        elif hasattr(self.languageComboBox, 'setItemText'):
+            self.languageComboBox.setItemText(0, QCoreApplication.translate("MainWindow", u"投屏语言", None))
 
-        self.manageCharacterColorsButton.setText(QCoreApplication.translate("MainWindow", u"\u7ba1\u7406\u89d2\u8272\u989c\u8272", None))
-        self.logAreaLabel.setText(QCoreApplication.translate("MainWindow", u"\u65e5\u5fd7\u533a\u57df\uff1a", None))
-        self.startButton.setText(QCoreApplication.translate("MainWindow", u"\u5f00\u59cb\u5bf9\u9f50", None))
-        self.pauseButton.setText(QCoreApplication.translate("MainWindow", u"\u6682\u505c", None))
-        self.stopButton.setText(QCoreApplication.translate("MainWindow", u"\u505c\u6b62", None))
-        self.showSubtitleButton.setText(QCoreApplication.translate("MainWindow", u"\u663e\u793a\u5b57\u5e55\u7a97\u53e3", None))
-        self.showDebugButton.setText(QCoreApplication.translate("MainWindow", u"\u8c03\u8bd5\u7a97\u53e3", None))
-        self.tabWidget.setTabText(self.tabWidget.indexOf(self.theaterTab), QCoreApplication.translate("MainWindow", u"\u5267\u573a\u6a21\u5f0f", None))
-        self.logLabel.setText(QCoreApplication.translate("MainWindow", u"\u5c31\u7eea", None))
+        self.manageCharacterColorsButton.setText(QCoreApplication.translate("MainWindow", u"管理角色颜色", None))
+        self.logAreaLabel.setText(QCoreApplication.translate("MainWindow", u"日志区域：", None))
+        self.startButton.setText(QCoreApplication.translate("MainWindow", u"开始对齐", None))
+        self.pauseButton.setText(QCoreApplication.translate("MainWindow", u"暂停", None))
+        self.stopButton.setText(QCoreApplication.translate("MainWindow", u"停止", None))
+        self.showSubtitleButton.setText(QCoreApplication.translate("MainWindow", u"显示字幕窗口", None))
+        self.showDebugButton.setText(QCoreApplication.translate("MainWindow", u"调试窗口", None))
+        self.tabWidget.setTabText(self.tabWidget.indexOf(self.theaterTab), QCoreApplication.translate("MainWindow", u"剧场模式", None))
+        self.logLabel.setText(QCoreApplication.translate("MainWindow", u"就绪", None))
     # retranslateUi
 

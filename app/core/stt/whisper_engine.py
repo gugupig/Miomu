@@ -28,6 +28,9 @@ class WhisperEngine(STTEngine):
 
         # 前缀累积避免重复打印
         self.prev_text    = ""
+        
+        # 语音状态检测（用于发射 speechStarted 信号）
+        self.was_speech_active = False
 
         # 初始化模型（懒加载到工作线程更安全）
         self._model       = None
@@ -46,6 +49,8 @@ class WhisperEngine(STTEngine):
             return
         self.running = False
         self.block_q.put(None)
+        # 重置语音状态
+        self.was_speech_active = False
 
     # ---------- 数据入口 ----------
     def feed(self, channel_id: int, pcm_block: np.ndarray):
@@ -112,11 +117,22 @@ class WhisperEngine(STTEngine):
             vad_parameters=dict(min_silence_duration_ms=300)
         )
         new_text = ""
+        has_speech = False
+        
         for seg in segments:
             # segment.text 自带空格/标点
             new_text += seg.text.strip() + " "
+            has_speech = True
 
         new_text = new_text.strip()
+        
+        # 检测语音开始：从无语音状态转为有语音状态
+        if has_speech and not self.was_speech_active:
+            self.was_speech_active = True
+            self._emit_speech_started()
+        elif not has_speech:
+            self.was_speech_active = False
+        
         if not new_text:
             return
 

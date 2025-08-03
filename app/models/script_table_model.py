@@ -29,8 +29,10 @@ class ScriptTableModel(QAbstractTableModel):
     COLUMN_LINE = 2
     COLUMN_PHONEMES = 3
     
-    COLUMN_NAMES = ["ID", "角色", "台词", "音素"]
-    COLUMN_COUNT = len(COLUMN_NAMES)
+    # 基础列（不包含音素，因为现在要根据是否有翻译动态调整）
+    BASE_COLUMN_NAMES = ["序号", "角色", "台词"]
+    # 音素列现在只在没有翻译语言时显示
+    PHONEMES_COLUMN_NAME = "音素"
     
     def __init__(self, cues: Optional[List[Cue]] = None, character_color_manager: Optional[CharacterColorManager] = None, parent=None):
         super().__init__(parent)
@@ -44,9 +46,14 @@ class ScriptTableModel(QAbstractTableModel):
         if self.character_color_manager:
             self.character_color_manager.colors_changed.connect(self._on_colors_changed)
         
-        # 新增：支持动态列
-        self.extra_columns: Dict[str, List[str]] = {}  # 列名 -> 数据列表
-        self.base_columns = ["ID", "角色", "台词", "音素"]
+        # 新增：支持动态翻译列  
+        self.translation_columns: Dict[str, str] = {}  # 显示名 -> 语言代码
+        self.extra_columns: Dict[str, List[str]] = {}  # 为兼容性保留，列名 -> 数据列表
+        # 动态生成当前使用的列名
+        self._current_columns = self.BASE_COLUMN_NAMES.copy()
+        
+        # 新增：语言列过滤支持（用于剧场模式）
+        self._visible_languages: Optional[Set[str]] = None  # 可见的语言代码集合
         
         # 新增：高亮支持
         self._highlighted_rows: Set[int] = set()
@@ -58,6 +65,25 @@ class ScriptTableModel(QAbstractTableModel):
         # 保存原始数据用于撤销
         self.save_snapshot()
         self._update_visible_rows()
+        
+        # 更新列显示
+        self._update_current_columns()
+        
+    def _update_current_columns(self):
+        """根据当前状态更新显示的列"""
+        # 基础列始终包含 ID, 角色, 台词
+        self._current_columns = self.BASE_COLUMN_NAMES.copy()
+        
+        # 如果有翻译语言，显示翻译列（考虑语言过滤）
+        if self.translation_columns:
+            for display_name, lang_code in self.translation_columns.items():
+                # 如果设置了语言过滤，只显示选中的语言
+                if self._visible_languages is None or lang_code in self._visible_languages:
+                    self._current_columns.append(display_name)
+        # 注意：不再显示音素列，音素数据仅用于后台对齐
+        
+        # 兼容性：添加extra_columns
+        self._current_columns.extend(list(self.extra_columns.keys()))
         
     def save_snapshot(self):
         """保存当前状态的快照，用于撤销功能"""
@@ -99,6 +125,17 @@ class ScriptTableModel(QAbstractTableModel):
         self.beginResetModel()
         self._cues = cues
         self._modified = False
+        
+        # 清理之前的翻译列配置，避免加载新剧本时列累积
+        self.translation_columns.clear()
+        self.extra_columns.clear()
+        
+        # 清理语言过滤设置
+        self._visible_languages = None
+        
+        # 更新列显示
+        self._update_current_columns()
+        
         self.endResetModel()
         self.save_snapshot()
         
@@ -127,7 +164,7 @@ class ScriptTableModel(QAbstractTableModel):
         """返回列数"""
         if parent.isValid():
             return 0
-        return len(self.base_columns) + len(self.extra_columns)
+        return len(self._current_columns)
         
     def data(self, index: Union[QModelIndex, QPersistentModelIndex], role: int = Qt.ItemDataRole.DisplayRole) -> Any:
         """返回指定位置的数据"""
@@ -146,21 +183,41 @@ class ScriptTableModel(QAbstractTableModel):
         cue = self._cues[actual_row]
         
         if role == Qt.ItemDataRole.DisplayRole or role == Qt.ItemDataRole.EditRole:
-            if col < len(self.base_columns):
-                # 基础列
+            # 根据当前列的配置返回数据
+            if col < len(self.BASE_COLUMN_NAMES):
+                # 基础列: ID, 角色, 台词
                 if col == self.COLUMN_ID:
-                    return str(cue.id)
+                    # 显示角色的character_cue_index值而不是id
+                    return str(getattr(cue, 'character_cue_index', ''))
                 elif col == self.COLUMN_CHARACTER:
                     return cue.character or ""  # 处理 None 的情况
                 elif col == self.COLUMN_LINE:
                     return cue.line
-                elif col == self.COLUMN_PHONEMES:
-                    return getattr(cue, 'phonemes', '')
             else:
-                # 额外语言列
-                extra_index = col - len(self.base_columns)
+                # 翻译列处理（音素列不再显示）
+                translation_index = col - len(self.BASE_COLUMN_NAMES)
+                if translation_index < len(self.translation_columns):
+                    # 获取翻译列的显示名
+                    display_names = list(self.translation_columns.keys())
+                    display_name = display_names[translation_index]
+                    # 获取对应的语言代码
+                    lang_code = self.translation_columns[display_name]
+                    
+                    # 确保Cue有translation字典
+                    if not hasattr(cue, 'translation') or cue.translation is None:
+                        cue.translation = {}
+                    
+                    # 如果该语言的key不存在，自动添加并设置为空字符串
+                    if lang_code not in cue.translation:
+                        cue.translation[lang_code] = ""
+                        logging.debug(f"为台词 {cue.id} 自动添加翻译语言 {lang_code} 的空值")
+                    
+                    return cue.translation[lang_code]
+                    
+                # 为兼容性保留extra_columns处理
+                extra_index = translation_index - len(self.translation_columns)
                 extra_keys = list(self.extra_columns.keys())
-                if extra_index < len(extra_keys):
+                if extra_index >= 0 and extra_index < len(extra_keys):
                     language = extra_keys[extra_index]
                     return self.extra_columns[language][row] if row < len(self.extra_columns[language]) else ""
                     
@@ -168,13 +225,13 @@ class ScriptTableModel(QAbstractTableModel):
             # 高亮显示
             if self.is_row_highlighted(actual_row):
                 return QBrush(QColor(100, 200, 100, 100))
-            # 只读列使用不同背景色
-            if col in self._read_only_columns and col < len(self.base_columns):
+            # 只读列使用不同背景色：只有ID列是只读的
+            if col == self.COLUMN_ID:
                 return QBrush(QColor(240, 240, 240))
                 
         elif role == Qt.ItemDataRole.ForegroundRole:
-            # 角色颜色显示
-            if self.character_color_manager and col == self.COLUMN_CHARACTER:
+            # 角色颜色显示 - ID列和角色列使用相同颜色
+            if self.character_color_manager and (col == self.COLUMN_ID or col == self.COLUMN_CHARACTER):
                 character = cue.character
                 color = self.character_color_manager.get_character_color(character)
                 return QBrush(QColor(color))
@@ -185,25 +242,26 @@ class ScriptTableModel(QAbstractTableModel):
                 return QBrush(QColor(color))
                 
         elif role == Qt.ItemDataRole.FontRole:
-            # 音素列使用等宽字体
-            if col == self.COLUMN_PHONEMES:
-                font = QFont("Consolas", 9)
-                return font
             # 角色名称使用粗体
-            elif col == self.COLUMN_CHARACTER:
+            if col == self.COLUMN_CHARACTER:
                 font = QFont()
                 font.setBold(True)
                 return font
                 
         elif role == Qt.ItemDataRole.ToolTipRole:
             if col == self.COLUMN_ID:
-                return "台词ID（只读）"
+                return "角色台词索引（只读）"
             elif col == self.COLUMN_CHARACTER:
                 return "角色名称（可编辑）"
             elif col == self.COLUMN_LINE:
                 return "台词内容（可编辑）"
-            elif col == self.COLUMN_PHONEMES:
-                return "音素转换结果（只读）"
+            else:
+                # 翻译列的提示
+                translation_index = col - len(self.BASE_COLUMN_NAMES)
+                if translation_index < len(self.translation_columns):
+                    display_names = list(self.translation_columns.keys())
+                    language_name = display_names[translation_index]
+                    return f"{language_name} 翻译（可编辑）"
                 
         return None
         
@@ -216,8 +274,8 @@ class ScriptTableModel(QAbstractTableModel):
         if not (0 <= row < len(self._cues) and 0 <= col < self.columnCount()):
             return False
             
-        # 检查只读列
-        if col in self._read_only_columns:
+        # 检查只读列：只有ID列是只读的
+        if col == self.COLUMN_ID:
             return False
             
         cue = self._cues[row]
@@ -230,7 +288,7 @@ class ScriptTableModel(QAbstractTableModel):
             
         # 更新数据
         try:
-            if col < len(self.base_columns):
+            if col < len(self.BASE_COLUMN_NAMES):
                 # 基础列
                 if col == self.COLUMN_CHARACTER:
                     old_value = cue.character
@@ -241,21 +299,38 @@ class ScriptTableModel(QAbstractTableModel):
                 else:
                     return False
             else:
-                # 额外语言列
-                extra_index = col - len(self.base_columns)
-                languages = list(self.extra_columns.keys())
-                if extra_index < len(languages):
-                    language = languages[extra_index]
-                    if row < len(self.extra_columns[language]):
-                        old_value = self.extra_columns[language][row]
-                    else:
-                        # 扩展列表到所需长度
-                        while len(self.extra_columns[language]) <= row:
-                            self.extra_columns[language].append("")
-                        old_value = ""
-                    self.extra_columns[language][row] = new_value
+                # 翻译列处理（音素列不再可编辑）
+                translation_index = col - len(self.BASE_COLUMN_NAMES)
+                
+                if translation_index < len(self.translation_columns):
+                    # 翻译列编辑
+                    display_names = list(self.translation_columns.keys())
+                    display_name = display_names[translation_index]
+                    lang_code = self.translation_columns[display_name]
+                    
+                    # 确保Cue有translation字典
+                    if not hasattr(cue, 'translation') or cue.translation is None:
+                        cue.translation = {}
+                    
+                    old_value = cue.translation.get(lang_code, "")
+                    cue.translation[lang_code] = new_value
+                    
                 else:
-                    return False
+                    # 兼容性处理extra_columns
+                    extra_index = translation_index - len(self.translation_columns)
+                    languages = list(self.extra_columns.keys())
+                    if extra_index >= 0 and extra_index < len(languages):
+                        language = languages[extra_index]
+                        if row < len(self.extra_columns[language]):
+                            old_value = self.extra_columns[language][row]
+                        else:
+                            # 扩展列表到所需长度
+                            while len(self.extra_columns[language]) <= row:
+                                self.extra_columns[language].append("")
+                            old_value = ""
+                        self.extra_columns[language][row] = new_value
+                    else:
+                        return False
                 
             # 标记数据已修改
             if old_value != new_value:
@@ -273,13 +348,8 @@ class ScriptTableModel(QAbstractTableModel):
     def headerData(self, section: int, orientation: Qt.Orientation, role: int = Qt.ItemDataRole.DisplayRole) -> Any:
         """返回表头数据"""
         if orientation == Qt.Orientation.Horizontal and role == Qt.ItemDataRole.DisplayRole:
-            if section < len(self.base_columns):
-                return self.base_columns[section]
-            else:
-                extra_index = section - len(self.base_columns)
-                extra_keys = list(self.extra_columns.keys())
-                if extra_index < len(extra_keys):
-                    return extra_keys[extra_index]
+            if section < len(self._current_columns):
+                return self._current_columns[section]
         elif orientation == Qt.Orientation.Vertical and role == Qt.ItemDataRole.DisplayRole:
             return str(section + 1)  # 行号从1开始
         return None
@@ -292,15 +362,15 @@ class ScriptTableModel(QAbstractTableModel):
         col = index.column()
         base_flags = Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable
         
-        # 只读列不可编辑
-        if col in self._read_only_columns:
+        # 只读列不可编辑：只有ID列是只读的
+        if col == self.COLUMN_ID:
             return base_flags
         else:
             return base_flags | Qt.ItemFlag.ItemIsEditable
             
     def sort(self, column: int, order: Qt.SortOrder = Qt.SortOrder.AscendingOrder):
         """排序"""
-        if not (0 <= column < self.COLUMN_COUNT):
+        if not (0 <= column < len(self._current_columns)):
             return
             
         self.layoutAboutToBeChanged.emit()
@@ -314,8 +384,7 @@ class ScriptTableModel(QAbstractTableModel):
                 self._cues.sort(key=lambda cue: cue.character or "", reverse=reverse)
             elif column == self.COLUMN_LINE:
                 self._cues.sort(key=lambda cue: cue.line, reverse=reverse)
-            elif column == self.COLUMN_PHONEMES:
-                self._cues.sort(key=lambda cue: getattr(cue, 'phonemes', ''), reverse=reverse)
+            # 音素列不再显示，因此不需要排序逻辑
                 
             self._modified = True
             self.dataModified.emit()
@@ -560,36 +629,77 @@ class ScriptTableModel(QAbstractTableModel):
             
     # === 多语言支持方法 ===
     
-    def add_language_column(self, language_name: str, translations: List[str] | None = None) -> bool:
-        """添加新语言列"""
-        if language_name in self.extra_columns:
+    def add_language_column(self, language_name: str, lang_code: str, translations: List[str] | None = None) -> bool:
+        """添加新翻译语言列"""
+        if language_name in self.translation_columns:
             return False
             
-        # 初始化翻译数据
-        if translations is None:
-            translations = [""] * len(self._cues)
-        elif len(translations) != len(self._cues):
-            # 调整长度匹配
-            translations = translations[:len(self._cues)] + [""] * max(0, len(self._cues) - len(translations))
-            
         self.beginInsertColumns(QModelIndex(), self.columnCount(), self.columnCount())
-        self.extra_columns[language_name] = translations
+        self.translation_columns[language_name] = lang_code
+        
+        # 更新列显示
+        self._update_current_columns()
+        
+        # 如果提供了翻译数据，设置到对应的Cue对象中
+        if translations is not None:
+            for i, translation in enumerate(translations):
+                if i < len(self._cues):
+                    cue = self._cues[i]
+                    if not hasattr(cue, 'translation') or cue.translation is None:
+                        cue.translation = {}
+                    cue.translation[lang_code] = translation
+        
         self.endInsertColumns()
         
         self._modified = True
         self.dataModified.emit()
         return True
         
+    def ensure_translation_completeness(self):
+        """确保所有台词的翻译字典包含所有语言的key"""
+        if not self.translation_columns:
+            return
+            
+        fixed_count = 0
+        for cue in self._cues:
+            # 确保台词有translation字典
+            if not hasattr(cue, 'translation') or cue.translation is None:
+                cue.translation = {}
+                fixed_count += 1
+            
+            # 为每个翻译语言确保有对应的key
+            for lang_name, lang_code in self.translation_columns.items():
+                if lang_code not in cue.translation:
+                    cue.translation[lang_code] = ""
+                    fixed_count += 1
+                    logging.debug(f"为台词 {cue.id} 自动添加翻译语言 {lang_code} 的空值")
+        
+        if fixed_count > 0:
+            logging.info(f"修复了 {fixed_count} 个缺失的翻译字典条目")
+            self._modified = True
+            self.dataModified.emit()
+        
     def remove_language_column(self, language_name: str) -> bool:
-        """移除语言列"""
-        if language_name not in self.extra_columns:
+        """移除翻译语言列"""
+        if language_name not in self.translation_columns:
             return False
             
         # 找到列索引
-        column_index = len(self.base_columns) + list(self.extra_columns.keys()).index(language_name)
-                      
+        column_index = len(self.BASE_COLUMN_NAMES) + list(self.translation_columns.keys()).index(language_name)
+        lang_code = self.translation_columns[language_name]
+        
         self.beginRemoveColumns(QModelIndex(), column_index, column_index)
-        del self.extra_columns[language_name]
+        
+        # 从所有Cue对象中移除对应的翻译数据
+        for cue in self._cues:
+            if hasattr(cue, 'translation') and cue.translation and lang_code in cue.translation:
+                del cue.translation[lang_code]
+        
+        del self.translation_columns[language_name]
+        
+        # 更新列显示
+        self._update_current_columns()
+        
         self.endRemoveColumns()
         
         self._modified = True
@@ -597,18 +707,24 @@ class ScriptTableModel(QAbstractTableModel):
         return True
         
     def get_language_columns(self) -> List[str]:
-        """获取所有语言列名"""
-        return list(self.extra_columns.keys())
+        """获取所有翻译语言列名"""
+        return list(self.translation_columns.keys())
         
-    def set_translation(self, row: int, language: str, translation: str) -> bool:
+    def set_translation(self, row: int, language_name: str, translation: str) -> bool:
         """设置指定行和语言的翻译"""
-        if language not in self.extra_columns or row < 0 or row >= len(self._cues):
+        if language_name not in self.translation_columns or row < 0 or row >= len(self._cues):
             return False
             
-        self.extra_columns[language][row] = translation
+        lang_code = self.translation_columns[language_name]
+        cue = self._cues[row]
+        
+        if not hasattr(cue, 'translation') or cue.translation is None:
+            cue.translation = {}
+            
+        cue.translation[lang_code] = translation
         
         # 发射数据变化信号
-        column_index = len(self.base_columns) + list(self.extra_columns.keys()).index(language)
+        column_index = len(self.BASE_COLUMN_NAMES) + list(self.translation_columns.keys()).index(language_name)
         index = self.index(row, column_index)
         self.dataChanged.emit(index, index, [Qt.ItemDataRole.DisplayRole])
         
@@ -616,11 +732,17 @@ class ScriptTableModel(QAbstractTableModel):
         self.dataModified.emit()
         return True
         
-    def get_translation(self, row: int, language: str) -> str:
+    def get_translation(self, row: int, language_name: str) -> str:
         """获取指定行和语言的翻译"""
-        if language not in self.extra_columns or row < 0 or row >= len(self._cues):
+        if language_name not in self.translation_columns or row < 0 or row >= len(self._cues):
             return ""
-        return self.extra_columns[language][row]
+            
+        lang_code = self.translation_columns[language_name]
+        cue = self._cues[row]
+        
+        if hasattr(cue, 'translation') and cue.translation and lang_code in cue.translation:
+            return cue.translation[lang_code]
+        return ""
     
     # === 角色颜色相关方法 ===
     
@@ -717,3 +839,40 @@ class ScriptTableModel(QAbstractTableModel):
     def is_row_highlighted(self, row: int) -> bool:
         """检查行是否被高亮"""
         return row in self._highlighted_rows
+        
+    # === 语言列过滤方法 ===
+    
+    def set_visible_languages(self, language_codes: Optional[Set[str]]):
+        """设置可见的语言列（用于剧场模式）"""
+        if self._visible_languages == language_codes:
+            return  # 没有变化，直接返回
+            
+        self._visible_languages = language_codes
+        
+        # 重新计算列数
+        old_column_count = self.columnCount()
+        self._update_current_columns()
+        new_column_count = self.columnCount()
+        
+        # 通知视图列结构发生变化
+        if old_column_count != new_column_count:
+            self.beginResetModel()
+            self.endResetModel()
+        else:
+            # 列数相同但内容可能不同，刷新所有数据
+            if self._cues:
+                top_left = self.index(0, 0)
+                bottom_right = self.index(len(self._cues) - 1, new_column_count - 1)
+                self.dataChanged.emit(top_left, bottom_right)
+        
+    def clear_language_filter(self):
+        """清除语言过滤，显示所有翻译列"""
+        self.set_visible_languages(None)
+        
+    def get_visible_languages(self) -> Optional[Set[str]]:
+        """获取当前可见的语言代码集合"""
+        return self._visible_languages
+        
+    def get_all_translation_languages(self) -> Dict[str, str]:
+        """获取所有可用的翻译语言（显示名 -> 语言代码）"""
+        return self.translation_columns.copy()

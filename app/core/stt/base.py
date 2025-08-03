@@ -28,6 +28,7 @@ class STTEngine(QObject, metaclass=_STTMeta):
     用法：
         eng = WhisperEngine(model='medium')
         eng.segmentReady.connect(on_piece)
+        eng.speechStarted.connect(on_speech_started)
         eng.start()
         ...
         eng.feed(block)      # 由 AudioHub 推送 PCM
@@ -37,6 +38,10 @@ class STTEngine(QObject, metaclass=_STTMeta):
     # Qt 信号：当生成新文本段时发射
     segmentReady = Signal(int, object) 
     #               └── channel id (int)
+    
+    # Qt 信号：当检测到语音开始时发射（用于 'end' 模式对齐）
+    speechStarted = Signal(int)
+    #                └── channel id (int)
 
     def __init__(self, language="auto", channel_id=0):
         super().__init__()
@@ -77,3 +82,7 @@ class STTEngine(QObject, metaclass=_STTMeta):
     # -------- 工具：发射信号 --------
     def _emit(self, piece):
         self.segmentReady.emit(self.channel_id, piece)
+        
+    def _emit_speech_started(self):
+        """发射语音开始信号"""
+        self.speechStarted.emit(self.channel_id)
