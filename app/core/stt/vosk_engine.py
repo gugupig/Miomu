@@ -21,8 +21,9 @@ class VoskEngine(STTEngine):
     def stop(self):
         self.running = False
 
-    def feed(self, pcm_block: np.ndarray):
+    def feed(self, channel_id: int, pcm_block: np.ndarray):
         """
+        channel_id: 声道编号 (0-based)
         pcm_block: float32 ndarray [-1, 1]  *单通道*
         """
         # 注意：Kaldi 接收 16-bit PCM，小数需要转换
