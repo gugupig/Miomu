@@ -13,11 +13,7 @@ from .director import (
     ProposalSource,
     ProposalPriority,
     DirectorState,
-    DirectorPresets,
-    LockingHandler,
-    ConfigurationHandler,
-    ProposalFilterHandler,
-    create_director
+    DirectorPresets
 )
 
 __all__ = [
@@ -28,9 +24,5 @@ __all__ = [
     'ProposalSource',
     'ProposalPriority',
     'DirectorState',
-    'DirectorPresets',
-    'LockingHandler',
-    'ConfigurationHandler', 
-    'ProposalFilterHandler',
-    'create_director'
+    'DirectorPresets'
 ]

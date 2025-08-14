@@ -1,4 +1,7 @@
 from typing import List, Dict, Any, Optional, Tuple
+import hashlib
+import json
+from datetime import datetime
 from PySide6.QtCore import QObject # 继承QObject以便未来增加信号
 from app.models.models import Cue, SubtitleDocument
 from app.core.g2p.base import G2PConverter
@@ -95,6 +98,7 @@ class ScriptData(QObject):
         """
         保存剧本数据到JSON文件
         保存完整的增强格式JSON，包括meta信息和所有数据
+        保存后会自动计算并更新文件哈希值
         """
         import json
         from datetime import datetime
@@ -108,14 +112,39 @@ class ScriptData(QObject):
             # 如果有document对象（增强版加载的），保存完整数据
             if hasattr(self, 'document') and self.document:
                 # 使用增强版格式保存
-                return self._save_enhanced_format(target_path)
+                success = self._save_enhanced_format(target_path)
+                if success:
+                    # 计算并更新文件哈希
+                    file_hash = self._calculate_file_hash(target_path)
+                    if self.document and self.document.meta:
+                        self.document.meta.hash = file_hash
+                        self.document.meta.updated_at = datetime.now().isoformat()
+                        print(f"[*] 已更新文件哈希: {file_hash[:16]}...")
+                return success
             else:
                 # 使用传统格式保存
-                return self._save_legacy_format(target_path)
+                success = self._save_legacy_format(target_path)
+                if success:
+                    # 对于传统格式，无法更新meta，但可以记录哈希
+                    file_hash = self._calculate_file_hash(target_path)
+                    print(f"[*] 文件哈希: {file_hash[:16]}...")
+                return success
                 
         except Exception as e:
             print(f"⚠️ Error saving script: {e}")
             return False
+    
+    def _calculate_file_hash(self, filepath: str) -> str:
+        """计算文件MD5哈希值"""
+        hasher = hashlib.md5()
+        try:
+            with open(filepath, 'rb') as f:
+                for chunk in iter(lambda: f.read(4096), b""):
+                    hasher.update(chunk)
+            return hasher.hexdigest()
+        except Exception as e:
+            print(f"⚠️ 计算文件哈希失败: {e}")
+            return ""
     
     def _save_enhanced_format(self, target_path: str) -> bool:
         """保存增强版格式（包含meta信息）"""
@@ -160,6 +189,17 @@ class ScriptData(QObject):
                 "notes": getattr(cue, 'notes', ""),
                 "style": getattr(cue, 'style', "default")
             }
+            
+            # 添加新的头尾字段（如果存在且非空）
+            if hasattr(cue, 'head_tok') and cue.head_tok:
+                cue_data["head_tok"] = cue.head_tok
+            if hasattr(cue, 'head_phonemes') and cue.head_phonemes:
+                cue_data["head_phonemes"] = cue.head_phonemes
+            if hasattr(cue, 'tail_tok') and cue.tail_tok:
+                cue_data["tail_tok"] = cue.tail_tok
+            if hasattr(cue, 'tail_phonemes') and cue.tail_phonemes:
+                cue_data["tail_phonemes"] = cue.tail_phonemes
+            
             cues_data.append(cue_data)
         
         save_data["cues"] = cues_data
@@ -222,6 +262,16 @@ class ScriptData(QObject):
                 
             if hasattr(cue, 'style') and cue.style != "default":
                 cue_data["style"] = cue.style
+            
+            # 添加新的头尾字段（如果存在且非空）
+            if hasattr(cue, 'head_tok') and cue.head_tok:
+                cue_data["head_tok"] = cue.head_tok
+            if hasattr(cue, 'head_phonemes') and cue.head_phonemes:
+                cue_data["head_phonemes"] = cue.head_phonemes
+            if hasattr(cue, 'tail_tok') and cue.tail_tok:
+                cue_data["tail_tok"] = cue.tail_tok
+            if hasattr(cue, 'tail_phonemes') and cue.tail_phonemes:
+                cue_data["tail_phonemes"] = cue.tail_phonemes
             
             cues_data.append(cue_data)
             

@@ -10,7 +10,7 @@ class TranscriptPiece:
     一段增量识别文本
     """
     text: str
-    confidence: float           # 0–1 or logprob
+    confidence: Optional[float]   # 0–1 or logprob
     start_ms: Optional[int] = None # 毫秒时间戳 可选）
     end_ms:   Optional[int] = None # 毫秒时间戳 可选）
     is_final: Optional[bool] = False # 是否最终结果 可选）

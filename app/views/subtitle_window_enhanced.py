@@ -30,14 +30,7 @@ class SubtitleWindow(QMainWindow):
         else:
             # 连接信号——视图只关心"Cue 改变"这一件事
             self.setup_player_connections()
-            # 确保显示第一条台词
-            if self.player.cues:
-                self.player.go(0)  # 跳转到第一条台词
-                # 如果go方法没有触发信号（因为初始状态），手动显示第一条
-                if self.player.current_cue:
-                    self.display_cue(self.player.current_cue)
-                elif len(self.player.cues) > 0:
-                    self.display_cue(self.player.cues[0])
+            self.player.go(0)  # 显示首句
 
     def setup_player_connections(self):
         """设置播放器连接"""
@@ -72,13 +65,8 @@ class SubtitleWindow(QMainWindow):
                 self.player = SubtitlePlayer(self.script_data.cues)
                 self.setup_player_connections()
                 
-                # 确保显示第一条台词
-                self.player.go(0)  # 跳转到第一条台词
-                # 如果go方法没有触发信号（因为初始状态），手动显示第一条
-                if self.player.current_cue:
-                    self.display_cue(self.player.current_cue)
-                elif len(self.player.cues) > 0:
-                    self.display_cue(self.player.cues[0])
+                # 显示第一句
+                self.player.go(0)
                 
                 # 更新窗口标题（虽然是无边框，但用于调试）
                 self.setWindowTitle(f"字幕窗口 - {file_path}")

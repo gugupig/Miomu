@@ -17,7 +17,7 @@ from PySide6.QtWidgets import (
     QApplication, QProgressBar, QSplitter, QTextEdit, QTableView,
     QAbstractItemView, QMenu, QInputDialog, QDialog, QComboBox
 )
-from PySide6.QtCore import Qt, Signal, Slot, QThread, QTimer
+from PySide6.QtCore import Qt, Signal, Slot, QThread, QTimer, QObject, QEvent
 from PySide6.QtGui import QFont, QBrush, QColor, QKeySequence, QShortcut
 
 print("导入UI文件...")
@@ -27,6 +27,9 @@ from app.ui.ui_character_color_dialog import Ui_CharacterColorDialog
 from app.ui.ui_style_manager_dialog import Ui_StyleManagerDialog
 from app.ui.ui_character_filter_dialog import Ui_CharacterFilterDialog
 print("✅ UI文件导入成功")
+
+# 导入自定义委托
+from app.views.character_delegate import CharacterDelegate
 
 print("导入应用模块...")
 
@@ -38,10 +41,12 @@ from app.core.stt.vosk_engine import VoskEngine
 from app.core.aligner.Aligner import Aligner
 from app.core.g2p.phonemizer_g2p import PhonemizerG2P
 from app.core.g2p.g2p_manager import G2PManager, G2PEngineType
+from app.core.engine_worker import EngineWorkerThread
 from app.models.models import Cue
 from app.models.script_table_model import ScriptTableModel
 from app.views.subtitle_window import SubtitleWindow
 from app.views.debug_window import DebugLogWindow
+from app.views.playcontrol import PlayControlWindow
 from app.views.character_color_dialog import CharacterColorDialog
 from app.views.character_filter_dialog import CharacterFilterDialog
 from app.ui.character_color_dialog import CharacterColorDialog as UICharacterColorDialog
@@ -181,114 +186,6 @@ class LoadScriptThread(QThread):
         return True
 
 
-class EngineWorkerThread(QThread):
-    """后台引擎工作线程"""
-    status_changed = Signal(str)
-    error_occurred = Signal(str)
-    
-    def __init__(self, g2p_manager=None, parent=None):
-        super().__init__(parent)
-        self.audio_hub: Optional[AudioHub] = None
-        self.stt_engine = None
-        self.aligner: Optional[Aligner] = None
-        self.running = False
-        self.g2p_manager = g2p_manager
-        
-    def setup_engines(self, script_data: ScriptData, player: SubtitlePlayer):
-        """设置引擎"""
-        try:
-            # 使用传入的G2P管理器或创建新的管理器
-            if self.g2p_manager is not None:
-                g2p_converter = self.g2p_manager.get_current_engine()
-                engine_info = self.g2p_manager.get_current_engine_info()
-                self.status_changed.emit(f"使用 {engine_info['name']}")
-            else:
-                # 备用方案：创建新的G2P管理器
-                from app.core.g2p.g2p_manager import G2PManager
-                g2p_manager = G2PManager()
-                g2p_converter = g2p_manager.get_best_available_engine()
-                engine_info = g2p_manager.get_current_engine_info()
-                self.status_changed.emit(f"使用 {engine_info['name']}")
-            
-            # 创建音频采集器
-            self.audio_hub = AudioHub(
-                channels=1, 
-                samplerate=16000, 
-                frames_per_block=1600,
-                silence_thresh=0.03
-            )
-            
-            # 创建STT引擎 - 优先使用Whisper
-            try:
-                self.stt_engine = WhisperEngine(
-                    model_size="small",
-                    device="cpu",  # 根据需要改为"cuda"
-                    language="zh"
-                )
-                self.status_changed.emit("使用 Whisper 引擎")
-            except Exception as e:
-                logging.warning(f"Whisper引擎初始化失败，尝试Vosk: {e}")
-                try:
-                    self.stt_engine = VoskEngine(
-                        model_dir="app/models/stt/vosk/vosk-model-cn-0.22",
-                        lang='zh'
-                    )
-                    self.status_changed.emit("使用 Vosk 引擎")
-                except Exception as e2:
-                    raise Exception(f"所有STT引擎都无法初始化: {e2}")
-            
-            # 创建对齐器
-            self.aligner = Aligner(
-                player=player,
-                stt_engine=self.stt_engine,
-                cues=script_data.cues,
-                g2p_converter=g2p_converter,
-                trigger_on='beginning'
-            )
-            
-            # 连接信号 - 直接连接，利用新的统一接口
-            if self.stt_engine and self.audio_hub:
-                self.audio_hub.blockReady.connect(self.stt_engine.feed)
-            
-            self.status_changed.emit("引擎设置完成")
-            
-        except Exception as e:
-            self.error_occurred.emit(f"引擎设置失败: {str(e)}")
-            
-    def start_engines(self):
-        """启动引擎"""
-        try:
-            if self.stt_engine:
-                self.stt_engine.start()
-                self.status_changed.emit("STT引擎已启动")
-                
-            if self.audio_hub:
-                self.audio_hub.start()
-                self.status_changed.emit("音频采集已启动")
-                
-            self.running = True
-            self.status_changed.emit("所有引擎已启动")
-            
-        except Exception as e:
-            self.error_occurred.emit(f"引擎启动失败: {str(e)}")
-            
-    def stop_engines(self):
-        """停止引擎"""
-        try:
-            self.running = False
-            
-            if self.audio_hub:
-                self.audio_hub.stop()
-                
-            if self.stt_engine:
-                self.stt_engine.stop()
-                
-            self.status_changed.emit("所有引擎已停止")
-            
-        except Exception as e:
-            self.error_occurred.emit(f"引擎停止失败: {str(e)}")
-
-
 class DynamicUIManager:
     """动态UI组件管理器 - 统一管理所有动态创建的UI元素"""
     
@@ -419,11 +316,7 @@ class DynamicUIManager:
             ('manage_character_colors_btn', '管理角色颜色', 'manage_character_colors', "管理角色颜色设置"),
             
             # 播放控制按钮
-            ('start_btn', '开始对齐', 'start_alignment', "开始音频对齐"),
-            ('pause_btn', '暂停', 'pause_alignment', "暂停对齐过程"),
-            ('stop_btn', '停止', 'stop_alignment', "停止对齐过程"),
-            ('prev_btn', '上一条', 'prev_cue', "跳转到上一条台词"),
-            ('next_btn', '下一条', 'next_cue', "跳转到下一条台词"),
+            ('start_btn', '播放控制', 'show_playcontrol_window', "打开播放控制窗口"),
             
             # 窗口控制按钮
             ('show_subtitle_btn', '显示字幕窗口', 'show_subtitle_window', "显示字幕显示窗口"),
@@ -502,7 +395,7 @@ class DynamicUIManager:
             'load_script_theater_btn': 'load_script',
             'filter_by_character_btn': 'filter_by_character',
             'manage_character_colors_btn': 'manage_character_colors',
-            'start_btn': 'start_alignment',
+            'start_btn': 'show_playcontrol_window',
             'pause_btn': 'pause_alignment',
             'stop_btn': 'stop_alignment',
             'prev_btn': 'prev_cue',
@@ -595,9 +488,14 @@ class MainConsoleWindow(QMainWindow):
         
         self.script_model = ScriptTableModel(character_color_manager=self.character_color_manager)  # 编辑模式的数据模型
         self.theater_model = ScriptTableModel(character_color_manager=self.character_color_manager)  # 剧场模式的数据模型
+        
+        # 角色委托
+        self.character_delegate = CharacterDelegate(self)
+        
         self.player: Optional[SubtitlePlayer] = None
         self.subtitle_window: Optional[SubtitleWindow] = None
         self.debug_window: Optional[DebugLogWindow] = None
+        self.playcontrol_window: Optional['PlayControlWindow'] = None  # 播放控制窗口
         self.worker_thread = EngineWorkerThread(g2p_manager=self.g2p_manager)
         self.load_thread: Optional[LoadScriptThread] = None  # 加载线程
         
@@ -610,8 +508,6 @@ class MainConsoleWindow(QMainWindow):
         self.setup_signals()
         
         # 状态
-        self.is_running = False
-        self.current_cue_index = -1
         self._loading_script = False  # 防止重复加载剧本
         
     def setup_logging(self):
@@ -789,15 +685,68 @@ class MainConsoleWindow(QMainWindow):
             if header:
                 header.setStretchLastSection(True)
                 header.setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
+            
+            # 为角色列（第1列）设置下拉菜单委托
+            if hasattr(self, 'character_delegate'):
+                self.script_table.setItemDelegateForColumn(1, self.character_delegate)
+                print("✅ 已为编辑模式角色列设置下拉菜单委托")
         
         # 剧场模式表格设置
         if hasattr(self, 'theater_table'):
             self.theater_table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
-            self.theater_table.setAlternatingRowColors(True)
+            # 禁用交替行颜色，以免干扰自定义高亮
+            self.theater_table.setAlternatingRowColors(False)
+            # 清除任何可能干扰自定义颜色的样式表
+            self.theater_table.setStyleSheet("")
             header = self.theater_table.horizontalHeader()
             if header:
                 header.setStretchLastSection(True)
                 header.setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
+            
+            # 禁用编辑与单击选中（仅用于剧场模式）
+            try:
+                self.theater_table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
+                self.theater_table.setSelectionMode(QAbstractItemView.SelectionMode.NoSelection)
+            except Exception:
+                pass
+
+            # 连接双击事件到字幕切换
+            self.theater_table.doubleClicked.connect(self.on_theater_item_double_clicked)
+
+            # 安装事件过滤器：拦截鼠标单击与方向键
+            # 定义并绑定一次，避免被垃圾回收
+            class _TheaterTableEventFilter(QObject):
+                def __init__(self, parent, on_up, on_down):
+                    super().__init__(parent)
+                    self._on_up = on_up
+                    self._on_down = on_down
+
+                def eventFilter(self, obj, event):
+                    et = event.type()
+                    if et == QEvent.Type.MouseButtonPress or et == QEvent.Type.MouseButtonRelease:
+                        # 禁用单击/释放造成的选中
+                        return True
+                    if et == QEvent.Type.MouseButtonDblClick:
+                        # 允许双击继续传递（用于跳转行），编辑已被禁用
+                        return False
+                    if et == QEvent.Type.KeyPress:
+                        key = event.key()
+                        if key == Qt.Key.Key_Up:
+                            if callable(self._on_up):
+                                self._on_up()
+                            return True
+                        if key == Qt.Key.Key_Down:
+                            if callable(self._on_down):
+                                self._on_down()
+                            return True
+                    return False
+
+            # 保存为实例属性，防止被回收
+            self._theater_event_filter = _TheaterTableEventFilter(self, self.prev_subtitle, self.next_subtitle)
+            try:
+                self.theater_table.installEventFilter(self._theater_event_filter)
+            except Exception:
+                pass
         
     def setup_shortcuts(self):
         """设置快捷键"""
@@ -805,13 +754,18 @@ class MainConsoleWindow(QMainWindow):
         open_shortcut = QShortcut(QKeySequence.StandardKey.Open, self)
         open_shortcut.activated.connect(self.load_script)
         
-        # 空格键播放/暂停
-        space_shortcut = QShortcut(QKeySequence(Qt.Key.Key_Space), self)
-        space_shortcut.activated.connect(self.toggle_alignment)
-        
         # F5 刷新
         refresh_shortcut = QShortcut(QKeySequence.StandardKey.Refresh, self)
         refresh_shortcut.activated.connect(self.refresh_display)
+        
+        # 字幕控制快捷键
+        # 上箭头 - 上一条台词
+        prev_shortcut = QShortcut(QKeySequence(Qt.Key.Key_Up), self)
+        prev_shortcut.activated.connect(self.prev_subtitle)
+        
+        # 下箭头 - 下一条台词
+        next_shortcut = QShortcut(QKeySequence(Qt.Key.Key_Down), self)
+        next_shortcut.activated.connect(self.next_subtitle)
         
     def setup_signals(self):
         """设置信号连接"""
@@ -905,13 +859,25 @@ class MainConsoleWindow(QMainWindow):
             
             # 创建播放器
             self.player = SubtitlePlayer(self.script_data.cues)
-            self.player.cueChanged.connect(self.on_cue_changed)
+            # 注意：播放器的信号连接已移至播放控制窗口
+            # 默认选中并显示第一行
+            if self.script_data.cues:
+                self.player.go(0, "Initial selection")
+                # 高亮剧场模式第一行并滚动到可见
+                try:
+                    self.update_theater_highlight(0)
+                except Exception:
+                    pass
+                # 同步到字幕屏幕（如果播放控制窗口已打开）
+                self.sync_subtitle_to_playcontrol()
             
             # 启用相关按钮（安全检查）
             if hasattr(self, 'start_btn') and self.start_btn:
                 self.start_btn.setEnabled(True)
             if hasattr(self, 'show_subtitle_btn') and self.show_subtitle_btn:
-                self.show_subtitle_btn.setEnabled(True)
+                self.show_subtitle_btn.setEnabled(False)  # 功能已迁移，永久禁用
+                self.show_subtitle_btn.setText("已迁移到播放控制")
+                self.show_subtitle_btn.setToolTip("字幕窗口功能已迁移到播放控制窗口中")
             if hasattr(self, 'save_script_btn') and self.save_script_btn:
                 self.save_script_btn.setEnabled(True)
             if hasattr(self, 'add_cue_btn') and self.add_cue_btn:
@@ -939,6 +905,9 @@ class MainConsoleWindow(QMainWindow):
             else:
                 self.update_status(f"已加载 {len(self.script_data.cues)} 条台词")
             logging.info(f"成功加载剧本: {self.script_data.filepath}")
+            
+            # 更新角色委托中的角色列表
+            self._update_character_delegate()
             
         except Exception as e:
             self.show_error(f"处理加载结果时出错: {str(e)}")
@@ -1158,7 +1127,22 @@ class MainConsoleWindow(QMainWindow):
         # 更新语言选择下拉菜单
         self._update_language_combo()
         
+        # 更新角色委托
+        self._update_character_delegate()
+        
         print("🔄 自动同步编辑模式数据到剧场模式完成")
+        
+    def adjust_theater_column_widths(self):
+        """调整剧场模式的列宽"""
+        header = self.theater_view.horizontalHeader()
+        column_count = self.theater_model.columnCount()
+        
+        if column_count > 0:
+            header.setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)  # ID
+        if column_count > 1:
+            header.setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)  # 角色
+        if column_count > 2:
+            header.setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)            # 主要台词
         
     def adjust_theater_column_widths(self):
         """调整剧场模式的列宽"""
@@ -1175,107 +1159,6 @@ class MainConsoleWindow(QMainWindow):
         # 其他语言列设置为自适应内容
         for col in range(3, column_count):
             header.setSectionResizeMode(col, QHeaderView.ResizeMode.ResizeToContents)
-            
-    @Slot()
-    def start_alignment(self):
-        """开始对齐"""
-        if not self.player or not self.script_data.cues:
-            self.show_error("请先加载剧本")
-            return
-            
-        try:
-            self.update_status("正在启动引擎...")
-            
-            # 设置并启动后台引擎
-            self.worker_thread.setup_engines(self.script_data, self.player)
-            self.worker_thread.start_engines()
-            
-            # 连接对齐器信号
-            if self.worker_thread.aligner:
-                self.worker_thread.aligner.cueMatched.connect(self.on_cue_matched)
-                self.worker_thread.aligner.alignmentUncertain.connect(self.on_alignment_uncertain)
-            
-            self.is_running = True
-            self.start_btn.setEnabled(False)
-            self.stop_btn.setEnabled(True)
-            self.update_alignment_status("对齐器: 运行中", "green")
-            
-            logging.info("对齐系统已启动")
-            
-        except Exception as e:
-            self.show_error(f"启动对齐失败: {str(e)}")
-            
-    @Slot()
-    def stop_alignment(self):
-        """停止对齐"""
-        try:
-            self.worker_thread.stop_engines()
-            
-            self.is_running = False
-            self.start_btn.setEnabled(True)
-            self.stop_btn.setEnabled(False)
-            self.update_alignment_status("对齐器: 停止", "red")
-            
-            # 清除高亮
-            self.clear_table_highlighting()
-            
-            self.update_status("对齐已停止")
-            logging.info("对齐系统已停止")
-            
-        except Exception as e:
-            self.show_error(f"停止对齐失败: {str(e)}")
-            
-    @Slot()
-    def toggle_alignment(self):
-        """切换对齐状态"""
-        if self.is_running:
-            self.stop_alignment()
-        else:
-            self.start_alignment()
-            
-    @Slot(Cue)
-    def on_cue_changed(self, cue: Cue):
-        """响应播放器台词变化"""
-        self.current_cue_index = cue.id - 1
-        self.highlight_current_cue()
-        self.update_status(f"当前台词: {cue.id} - {cue.character or '(舞台提示)'}")
-        
-    @Slot(Cue)
-    def on_cue_matched(self, cue: Cue):
-        """响应对齐器匹配信号"""
-        if self.player:
-            self.player.go_by_cue_obj(cue)
-            
-    @Slot(bool)
-    def on_alignment_uncertain(self, uncertain: bool):
-        """响应对齐器不确定状态"""
-        if uncertain:
-            self.update_alignment_status("对齐器: 不确定", "orange")
-        else:
-            self.update_alignment_status("对齐器: 运行中", "green")
-            
-    def highlight_current_cue(self):
-        """高亮当前台词行"""
-        if self.current_cue_index < 0:
-            return
-            
-        # 清除之前的高亮
-        self.clear_table_highlighting()
-        
-        # 在剧场模式表格中高亮当前行
-        if self.current_cue_index < self.theater_model.rowCount():
-            # 使用模型的高亮功能
-            self.theater_model.highlight_row(self.current_cue_index)
-                    
-            # 滚动到当前行
-            current_index = self.theater_model.index(self.current_cue_index, 0)
-            self.theater_view.scrollTo(current_index, QTableView.ScrollHint.PositionAtCenter)
-            
-    def clear_table_highlighting(self):
-        """清除表格高亮"""
-        # 使用模型的清除高亮功能
-        if hasattr(self.theater_model, 'clear_highlighting'):
-            self.theater_model.clear_highlighting()
                     
     @Slot()
     def on_script_item_double_clicked(self, item):
@@ -1297,17 +1180,15 @@ class MainConsoleWindow(QMainWindow):
             
     @Slot()
     def show_subtitle_window(self):
-        """显示字幕窗口"""
-        if not self.player:
-            self.show_error("请先加载剧本")
-            return
-            
-        if self.subtitle_window is None:
-            self.subtitle_window = SubtitleWindow(self.player)
-            
-        self.subtitle_window.show()
-        self.subtitle_window.raise_()
-        self.subtitle_window.activateWindow()
+        """显示字幕窗口 - 已禁用，功能已迁移到PlayControl"""
+        QMessageBox.information(
+            self, 
+            "功能迁移", 
+            "字幕窗口功能已迁移到播放控制窗口中。\n\n请使用以下方式显示字幕：\n"
+            "1. 点击'播放控制'按钮打开播放控制窗口\n"
+            "2. 在播放控制窗口中使用字幕相关功能"
+        )
+        return
         
     @Slot()
     def show_debug_window(self):
@@ -1321,6 +1202,27 @@ class MainConsoleWindow(QMainWindow):
         self.debug_window.show()
         self.debug_window.raise_()
         self.debug_window.activateWindow()
+        
+    @Slot()
+    def show_playcontrol_window(self):
+        """显示播放控制窗口"""
+        if not self.script_data or not self.script_data.cues:
+            self.show_error("请先加载剧本")
+            return
+            
+        if self.playcontrol_window is None:
+            self.playcontrol_window = PlayControlWindow(
+                script_data=self.script_data,
+                g2p_manager=self.g2p_manager,
+                parent=self
+            )
+        else:
+            # 如果窗口已存在，更新剧本数据
+            self.playcontrol_window.set_script_data(self.script_data)
+            
+        self.playcontrol_window.show()
+        self.playcontrol_window.raise_()
+        self.playcontrol_window.activateWindow()
         
     @Slot()
     def refresh_display(self):
@@ -1347,16 +1249,6 @@ class MainConsoleWindow(QMainWindow):
             if hasattr(self, 'log_display') and self.log_display:
                 self.log_display.append(f"[STATUS] {message}")
                 
-    def update_alignment_status(self, message: str, color: str = "black"):
-        """更新对齐器状态显示"""
-        if hasattr(self, 'alignment_status') and self.alignment_status:
-            self.alignment_status.setText(message)
-            self.alignment_status.setStyleSheet(f"color: {color};")
-        else:
-            # 备用方案：显示在状态栏或日志中
-            full_message = f"[ALIGN] {message}"
-            self.update_status(full_message)
-        
     @Slot(str)
     def show_error(self, message: str):
         """显示错误消息"""
@@ -1380,6 +1272,40 @@ class MainConsoleWindow(QMainWindow):
         """保存剧本 - 弹出文件对话框选择保存路径"""
         if not self.script_data.cues:
             self.show_error("没有可保存的剧本数据")
+            return
+        
+        # 从模型同步数据到script_data
+        self.script_data.cues = self.script_model.get_cues()
+        
+        # 检查是否有角色名为空的台词
+        empty_character_rows = []
+        for i, cue in enumerate(self.script_data.cues):
+            if not cue.character or not cue.character.strip():
+                empty_character_rows.append(i + 1)  # 行号从1开始
+                
+        if empty_character_rows:
+            # 如果有空角色名，显示错误信息
+            if len(empty_character_rows) == 1:
+                error_msg = f"第 {empty_character_rows[0]} 行的角色名为空，请填写后再保存。"
+            elif len(empty_character_rows) <= 5:
+                rows_str = "、".join(map(str, empty_character_rows))
+                error_msg = f"第 {rows_str} 行的角色名为空，请填写后再保存。"
+            else:
+                rows_str = "、".join(map(str, empty_character_rows[:5]))
+                error_msg = f"第 {rows_str} 等 {len(empty_character_rows)} 行的角色名为空，请填写后再保存。"
+                
+            QMessageBox.warning(
+                self,
+                "保存失败",
+                error_msg + "\n\n提示：您可以双击角色列的单元格来编辑角色名。"
+            )
+            
+            # 定位到第一个有问题的行
+            if hasattr(self, 'script_table') and self.script_table:
+                first_empty_row = empty_character_rows[0] - 1  # 转回0基索引
+                self.script_table.selectRow(first_empty_row)
+                self.script_table.scrollTo(self.script_model.index(first_empty_row, 1))  # 滚动到角色列
+                
             return
         
         # 弹出文件保存对话框
@@ -1414,7 +1340,10 @@ class MainConsoleWindow(QMainWindow):
             file_path += '.json'
         
         try:
-            # 从模型同步数据到script_data
+            # 重新计算序号以确保数据一致性
+            self._reindex_all_cues()
+            
+            # 再次同步数据
             self.script_data.cues = self.script_model.get_cues()
             
             # 保存到指定文件
@@ -1448,56 +1377,189 @@ class MainConsoleWindow(QMainWindow):
             
     @Slot()
     def add_cue(self):
-        """添加新台词"""
-        character, ok = QInputDialog.getText(self, "添加台词", "角色名称:")
-        if not ok or not character.strip():
-            return
+        """添加新台词 - 在当前选中行下方插入空行"""
+        try:
+            # 获取当前选中的行
+            current_row = -1
+            if hasattr(self, 'script_table') and self.script_table:
+                selection = self.script_table.selectionModel()
+                if selection and selection.hasSelection():
+                    selected_indexes = selection.selectedRows()
+                    if selected_indexes:
+                        current_row = selected_indexes[0].row()
             
-        line, ok = QInputDialog.getText(self, "添加台词", "台词内容:")
-        if not ok or not line.strip():
-            return
+            # 确定插入位置
+            insert_index = current_row + 1 if current_row >= 0 else len(self.script_data.cues)
             
-        success = self.script_model.add_cue(character.strip(), line.strip())
-        if success:
-            self.update_status("已添加新台词")
-        else:
-            self.show_error("添加台词失败")
+            # 调用模型的添加方法，插入空台词
+            success = self.script_model.add_cue_at_position(
+                character="",  # 空角色名，需要用户填写
+                line="",       # 空台词内容，需要用户填写
+                index=insert_index
+            )
+            
+            if success:
+                # 重新计算所有ID和角色序号
+                self._reindex_all_cues()
+                
+                # 选中新插入的行
+                if hasattr(self, 'script_table') and self.script_table:
+                    new_index = self.script_model.index(insert_index, 0)
+                    self.script_table.selectRow(insert_index)
+                    self.script_table.scrollTo(new_index)
+                
+                self.update_status(f"已在第 {insert_index + 1} 行插入新台词，请填写角色和内容")
+                logging.info(f"在位置 {insert_index} 插入新的空台词")
+            else:
+                self.show_error("添加台词失败")
+                
+        except Exception as e:
+            self.show_error(f"添加台词时出错: {str(e)}")
+            logging.error(f"添加台词失败: {e}")
             
     @Slot()
     def delete_cue(self):
         """删除选中的台词"""
-        selection = self.script_view.selectionModel()
+        # 检查是否有数据
+        if not self.script_data.cues:
+            self.show_error("没有可删除的台词数据")
+            return
+            
+        # 检查是否有选中的行
+        if not hasattr(self, 'script_table') or not self.script_table:
+            self.show_error("表格组件不可用")
+            return
+            
+        selection = self.script_table.selectionModel()
         if not selection or not selection.hasSelection():
             self.show_error("请先选择要删除的台词")
             return
             
+        # 获取选中的行
         selected_rows = []
+        selected_cues_info = []  # 用于显示确认信息
+        
         for index in selection.selectedRows():
-            selected_rows.append(index.row())
+            row = index.row()
+            selected_rows.append(row)
+            
+            # 获取台词信息用于确认对话框
+            if 0 <= row < len(self.script_data.cues):
+                cue = self.script_data.cues[row]
+                cue_info = f"第{row+1}行: {cue.character or '(无角色)'} - {cue.line[:20]}{'...' if len(cue.line) > 20 else ''}"
+                selected_cues_info.append(cue_info)
             
         if not selected_rows:
             return
             
+        # 构建确认删除的详细信息
+        if len(selected_rows) == 1:
+            confirm_message = f"确定要删除以下台词吗？\n\n{selected_cues_info[0]}"
+        else:
+            if len(selected_cues_info) <= 5:
+                cues_text = "\n".join(selected_cues_info)
+            else:
+                cues_text = "\n".join(selected_cues_info[:5]) + f"\n... 以及其他 {len(selected_cues_info) - 5} 条台词"
+            confirm_message = f"确定要删除以下 {len(selected_rows)} 条台词吗？\n\n{cues_text}"
+            
         # 确认删除
         reply = QMessageBox.question(
-            self, "确认删除",
-            f"确定要删除选中的 {len(selected_rows)} 条台词吗？",
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+            self, 
+            "确认删除",
+            confirm_message + "\n\n注意：删除后将自动重新计算所有台词的序号。",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No  # 默认选择"否"，更安全
         )
         
         if reply != QMessageBox.StandardButton.Yes:
             return
             
-        # 从后往前删除，避免索引问题
-        selected_rows.sort(reverse=True)
-        deleted_count = 0
-        
-        for row in selected_rows:
-            if self.script_model.remove_cue(row):
-                deleted_count += 1
+        try:
+            # 记录删除前的总数
+            original_count = len(self.script_data.cues)
+            
+            # 从后往前删除，避免索引问题
+            selected_rows.sort(reverse=True)
+            deleted_count = 0
+            deleted_characters = set()  # 记录被删除台词的角色
+            
+            for row in selected_rows:
+                if 0 <= row < len(self.script_data.cues):
+                    # 记录被删除台词的角色信息
+                    cue = self.script_data.cues[row]
+                    if cue.character:
+                        deleted_characters.add(cue.character)
+                    
+                    # 删除台词
+                    if self.script_model.remove_cue(row):
+                        deleted_count += 1
+                        
+            if deleted_count > 0:
+                # 重新计算所有ID和角色序号
+                self._reindex_all_cues()
                 
-        self.update_status(f"已删除 {deleted_count} 条台词")
-        
+                # 智能选择删除后的行
+                self._smart_select_after_deletion(selected_rows, original_count)
+                
+                # 更新角色委托（因为可能删除了某些角色的所有台词）
+                self._update_character_delegate()
+                
+                # 构建状态消息
+                status_msg = f"已删除 {deleted_count} 条台词"
+                if deleted_characters:
+                    char_list = "、".join(sorted(deleted_characters))
+                    if len(char_list) > 30:
+                        char_list = char_list[:30] + "..."
+                    status_msg += f"（涉及角色: {char_list}）"
+                
+                self.update_status(status_msg)
+                logging.info(f"删除了 {deleted_count} 条台词，涉及角色: {deleted_characters}")
+            else:
+                self.show_error("删除操作失败，没有台词被删除")
+                
+        except Exception as e:
+            self.show_error(f"删除台词时出错: {str(e)}")
+            logging.error(f"删除台词失败: {e}")
+            
+    def _smart_select_after_deletion(self, deleted_rows: list, original_count: int):
+        """删除后的智能选择逻辑"""
+        try:
+            if not hasattr(self, 'script_table') or not self.script_table:
+                return
+                
+            current_count = len(self.script_data.cues)
+            if current_count == 0:
+                # 如果删除后没有台词了，不需要选择
+                return
+                
+            # 找到最小的删除行号
+            min_deleted_row = min(deleted_rows)
+            
+            # 选择逻辑：
+            # 1. 如果删除的是最后几行，选择新的最后一行
+            # 2. 否则选择删除位置的下一行（现在已经上移了）
+            if min_deleted_row >= current_count:
+                # 删除的是最后几行，选择新的最后一行
+                new_selection_row = current_count - 1
+            else:
+                # 选择删除位置的当前行（原来的下一行已经上移到这个位置）
+                new_selection_row = min_deleted_row
+                
+            # 确保选择行在有效范围内
+            new_selection_row = max(0, min(new_selection_row, current_count - 1))
+            
+            # 选中新行
+            self.script_table.selectRow(new_selection_row)
+            
+            # 滚动到选中行
+            new_index = self.script_model.index(new_selection_row, 0)
+            self.script_table.scrollTo(new_index)
+            
+            logging.debug(f"删除后智能选择第 {new_selection_row + 1} 行")
+            
+        except Exception as e:
+            logging.error(f"删除后智能选择失败: {e}")
+            
     @Slot()
     def duplicate_cue(self):
         """复制选中的台词"""
@@ -1825,14 +1887,6 @@ class MainConsoleWindow(QMainWindow):
         """角色颜色更新时的处理"""
         self.update_status("角色颜色配置已更新")
     
-    @Slot()
-    def pause_alignment(self):
-        """暂停对齐"""
-        if self.is_running:
-            # 暂停功能的简单实现 - 先停止，用户可以手动重新开始
-            self.stop_alignment()
-            self.update_status("对齐已停止（暂停功能开发中）")
-    
     def _update_theater_buttons(self):
         """更新剧场模式按钮状态"""
         has_data = bool(self.script_data and self.script_data.cues)
@@ -1848,10 +1902,12 @@ class MainConsoleWindow(QMainWindow):
             self.language_combo.setEnabled(has_data)
             
         if hasattr(self, 'start_btn') and self.start_btn:
-            self.start_btn.setEnabled(has_data and not self.is_running)
+            self.start_btn.setEnabled(has_data)  # 现在只需要检查是否有数据
             
         if hasattr(self, 'show_subtitle_btn') and self.show_subtitle_btn:
-            self.show_subtitle_btn.setEnabled(has_data)
+            self.show_subtitle_btn.setEnabled(False)  # 功能已迁移，永久禁用
+            self.show_subtitle_btn.setText("已迁移到播放控制")
+            self.show_subtitle_btn.setToolTip("字幕窗口功能已迁移到播放控制窗口中")
             
     @Slot()
     def show_character_color_dialog(self):
@@ -1909,23 +1965,149 @@ class MainConsoleWindow(QMainWindow):
                 QMessageBox.information(self, "角色过滤", "角色过滤功能暂不可用")
         else:
             QMessageBox.information(self, "角色过滤", "角色过滤功能需要UI文件支持")
+    
+    # ==================== 字幕控制功能 ====================
+    
+    @Slot()
+    def prev_subtitle(self):
+        """上一条字幕"""
+        if self.player and self.player.current_index > 0:
+            self.player.prev()
+            self.sync_subtitle_to_playcontrol()
+            logging.info(f"切换到上一条字幕: {self.player.current_index}")
+    
+    @Slot()
+    def next_subtitle(self):
+        """下一条字幕"""
+        if self.player and self.player.current_index < self.player.total_cues - 1:
+            self.player.next()
+            self.sync_subtitle_to_playcontrol()
+            logging.info(f"切换到下一条字幕: {self.player.current_index}")
+    
+    def sync_subtitle_to_playcontrol(self):
+        """同步字幕切换到PlayControl的字幕窗口"""
+        # 无论是否有PlayControl窗口，都更新剧场模式高亮
+        if self.player:
+            self.update_table_selection(self.player.current_index)
+        
+        # 如果有PlayControl窗口，也同步到那里
+        if self.playcontrol_window and self.player and self.player.current_cue:
+            # 使用PlayControl的统一字幕切换接口
+            if hasattr(self.playcontrol_window, 'unified_subtitle_switch'):
+                self.playcontrol_window.unified_subtitle_switch(self.player.current_cue)
+    
+    @Slot()
+    def on_theater_item_double_clicked(self, index):
+        """剧场模式表格项双击事件 - 跳转到指定字幕"""
+        row = index.row()
+        if self.player and 0 <= row < len(self.script_data.cues):
+            cue = self.script_data.cues[row]
+            self.player.go_by_cue_obj(cue)
+            self.sync_subtitle_to_playcontrol()
+            logging.info(f"双击跳转到台词: {cue.id} (第{row+1}行)")
+    
+    def update_table_selection(self, index: int):
+        """更新表格选中状态"""
+        # 更新剧场模式表格（使用高亮而非选中）
+        if hasattr(self, 'theater_table') and self.theater_table and hasattr(self, 'theater_model') and self.theater_model:
+            try:
+                self.update_theater_highlight(index)
+            except Exception:
+                pass
+        
+        # 更新编辑模式表格
+        if hasattr(self, 'script_table') and self.script_table:
+            selection_model = self.script_table.selectionModel()
+            if selection_model:
+                model = self.script_table.model()
+                if model and 0 <= index < model.rowCount():
+                    model_index = model.index(index, 0)
+                    selection_model.select(model_index, selection_model.SelectionFlag.ClearAndSelect | selection_model.SelectionFlag.Rows)
+                    self.script_table.scrollTo(model_index)
+
+    def update_theater_highlight(self, actual_row: int):
+        """高亮剧场模式中的指定实际行，并滚动到可见位置"""
+        if not hasattr(self, 'theater_model') or not self.theater_model:
+            return
+        if actual_row < 0:
+            return
+        # 清除旧高亮并设置新高亮
+        self.theater_model.clear_highlighting()
+        self.theater_model.highlight_row(actual_row)
+        # 计算可见行索引并滚动
+        try:
+            visible_row = self.theater_model.get_visible_row(actual_row)
+            if visible_row < 0:
+                visible_row = actual_row
+            if hasattr(self, 'theater_table') and self.theater_table:
+                model_index = self.theater_model.index(visible_row, 0)
+                self.theater_table.scrollTo(model_index)
+        except Exception:
+            pass
+            
+    def _update_character_delegate(self):
+        """更新角色委托中的角色列表"""
+        try:
+            if not hasattr(self, 'character_delegate') or not self.character_delegate:
+                return
+                
+            # 从当前剧本数据中提取所有角色
+            characters = set()
+            if self.script_data and self.script_data.cues:
+                for cue in self.script_data.cues:
+                    if cue.character and cue.character.strip():
+                        characters.add(cue.character.strip())
+            
+            # 更新委托的角色列表
+            character_list = sorted(list(characters))
+            self.character_delegate.set_character_list(character_list)
+            
+            logging.info(f"角色委托已更新，包含 {len(character_list)} 个角色: {character_list}")
+            
+        except Exception as e:
+            logging.error(f"更新角色委托失败: {e}")
+            
+    def _reindex_all_cues(self):
+        """重新计算所有台词的ID和角色序号"""
+        try:
+            cues = self.script_model.get_cues()
+            if not cues:
+                return
+                
+            # 重新分配总体序号ID
+            for i, cue in enumerate(cues):
+                cue.id = i + 1
+                
+            # 重新计算角色序号
+            character_counters = {}  # 记录每个角色的台词计数
+            
+            for cue in cues:
+                character = cue.character
+                if character and character.strip():
+                    # 如果角色名不为空，更新角色序号
+                    if character not in character_counters:
+                        character_counters[character] = 0
+                    character_counters[character] += 1
+                    cue.character_cue_index = character_counters[character]
+                else:
+                    # 如果角色名为空，设置为-1
+                    cue.character_cue_index = -1
+                    
+            # 通知模型数据已更改
+            self.script_model.layoutChanged.emit()
+            self.script_model._modified = True
+            self.script_model.dataModified.emit()
+            
+            # 同步到剧场模式
+            self.sync_theater_model()
+            
+            logging.info(f"重新编号完成: {len(cues)} 条台词，{len(character_counters)} 个角色")
+            
+        except Exception as e:
+            logging.error(f"重新编号失败: {e}")
             
     def closeEvent(self, event):
         """窗口关闭事件"""
-        if self.is_running:
-            reply = QMessageBox.question(
-                self,
-                "确认退出",
-                "对齐系统正在运行，确定要退出吗？",
-                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
-            )
-            
-            if reply == QMessageBox.StandardButton.No:
-                event.ignore()
-                return
-                
-            self.stop_alignment()
-            
         # 停止加载线程（如果正在运行）
         if self.load_thread and self.load_thread.isRunning():
             self.load_thread.quit()
@@ -1939,6 +2121,8 @@ class MainConsoleWindow(QMainWindow):
             self.subtitle_window.close()
         if self.debug_window:
             self.debug_window.close()
+        if self.playcontrol_window:
+            self.playcontrol_window.close()
             
         event.accept()
 

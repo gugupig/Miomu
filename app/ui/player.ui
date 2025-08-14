@@ -1,0 +1,1220 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>MainWindow</class>
+ <widget class="QWidget" name="MainWindow">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>1024</width>
+    <height>768</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>App UI</string>
+  </property>
+  <layout class="QGridLayout" name="gridLayout_main">
+   <item row="0" column="0">
+    <widget class="QFrame" name="left_panel">
+     <property name="minimumSize">
+      <size>
+       <width>200</width>
+       <height>0</height>
+      </size>
+     </property>
+     <property name="maximumSize">
+      <size>
+       <width>250</width>
+       <height>16777215</height>
+      </size>
+     </property>
+     <property name="frameShape">
+      <enum>QFrame::Shape::StyledPanel</enum>
+     </property>
+     <property name="frameShadow">
+      <enum>QFrame::Shadow::Raised</enum>
+     </property>
+     <layout class="QVBoxLayout" name="verticalLayout">
+      <item>
+       <widget class="QPushButton" name="initialNreset">
+        <property name="text">
+         <string>初始化/重置</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QPushButton" name="startAligner">
+        <property name="text">
+         <string>开始对齐</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QPushButton" name="showAllscrenns">
+        <property name="text">
+         <string>显示所有字幕窗口</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QPushButton" name="hideSubtitle">
+        <property name="text">
+         <string>遮蔽字幕</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <layout class="QHBoxLayout" name="horizontalLayout_audio">
+        <item>
+         <widget class="QLabel" name="label_audio_source">
+          <property name="text">
+           <string>音频源</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QComboBox" name="comboBox_audio_source"/>
+        </item>
+        <item>
+         <widget class="QPushButton" name="placeholder_1">
+          <property name="text">
+           <string>Button</string>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </item>
+      <item>
+       <spacer name="verticalSpacer_left">
+        <property name="orientation">
+         <enum>Qt::Orientation::Vertical</enum>
+        </property>
+        <property name="sizeHint" stdset="0">
+         <size>
+          <width>20</width>
+          <height>40</height>
+         </size>
+        </property>
+       </spacer>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item row="0" column="1">
+    <widget class="QFrame" name="right_panel">
+     <property name="frameShape">
+      <enum>QFrame::Shape::StyledPanel</enum>
+     </property>
+     <property name="frameShadow">
+      <enum>QFrame::Shadow::Raised</enum>
+     </property>
+     <layout class="QVBoxLayout" name="verticalLayout_2">
+      <property name="spacing">
+       <number>0</number>
+      </property>
+      <property name="leftMargin">
+       <number>0</number>
+      </property>
+      <property name="topMargin">
+       <number>0</number>
+      </property>
+      <property name="rightMargin">
+       <number>0</number>
+      </property>
+      <property name="bottomMargin">
+       <number>0</number>
+      </property>
+      <item>
+       <widget class="QTextBrowser" name="textBrowser_status">
+        <property name="maximumSize">
+         <size>
+          <width>16777215</width>
+          <height>100</height>
+         </size>
+        </property>
+        <property name="html">
+         <string>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
+&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;meta charset=&quot;utf-8&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
+p, li { white-space: pre-wrap; }
+hr { height: 1px; border-width: 0; }
+li.unchecked::marker { content: &quot;\2610&quot;; }
+li.checked::marker { content: &quot;\2612&quot;; }
+&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Microsoft YaHei UI'; font-size:9pt; font-weight:400; font-style:normal;&quot;&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;span style=&quot; font-family:'Segoe UI';&quot;&gt;SYSTEM STATUS AREA (动态文字框)&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QTextBrowser" name="textBrowser_log">
+        <property name="html">
+         <string>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
+&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;meta charset=&quot;utf-8&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
+p, li { white-space: pre-wrap; }
+hr { height: 1px; border-width: 0; }
+li.unchecked::marker { content: &quot;\2610&quot;; }
+li.checked::marker { content: &quot;\2612&quot;; }
+&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Microsoft YaHei UI'; font-size:9pt; font-weight:400; font-style:normal;&quot;&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;span style=&quot; font-family:'Segoe UI';&quot;&gt;SYSTEM LOG AREA&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item row="1" column="0" colspan="2">
+    <widget class="QTabWidget" name="screen_tabs">
+     <widget class="QWidget" name="screen_1">
+      <attribute name="title">
+       <string>屏幕1</string>
+      </attribute>
+      <layout class="QVBoxLayout" name="verticalLayout_tab1">
+       <item>
+        <layout class="QHBoxLayout" name="horizontalLayout_tab_top_1">
+         <item>
+          <widget class="QCheckBox" name="activate_screen_1">
+           <property name="text">
+            <string>激活屏幕</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QCheckBox" name="activate_2nd_lang_1">
+           <property name="text">
+            <string>激活第二语言</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QLabel" name="screen_AsignTo_1">
+           <property name="text">
+            <string>此屏幕分配给:</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QComboBox" name="comboBox_screen_assign_1"/>
+         </item>
+         <item>
+          <widget class="QPushButton" name="pushButton_showscreen_1">
+           <property name="text">
+            <string>显示屏幕</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </item>
+       <item>
+        <widget class="QTabWidget" name="lang_subtabs_1">
+         <property name="currentIndex">
+          <number>0</number>
+         </property>
+         <widget class="QWidget" name="sub_lang_1_1">
+          <attribute name="title">
+           <string>语言1</string>
+          </attribute>
+          <layout class="QVBoxLayout" name="verticalLayout_subtab1">
+           <item>
+            <layout class="QGridLayout" name="gridLayout_subtab_1_1">
+             <item row="0" column="0">
+              <widget class="QLabel" name="label_lang_1_1">
+               <property name="text">
+                <string>语言</string>
+               </property>
+              </widget>
+             </item>
+             <item row="0" column="1">
+              <widget class="QComboBox" name="comboBox_lang_1_1"/>
+             </item>
+             <item row="0" column="2">
+              <widget class="QCheckBox" name="checkBox_audio_source_1_1">
+               <property name="text">
+                <string>音频源</string>
+               </property>
+              </widget>
+             </item>
+             <item row="0" column="3">
+              <widget class="QComboBox" name="comboBox_audio_source_1_1"/>
+             </item>
+             <item row="1" column="0">
+              <widget class="QLabel" name="label_font_1_1">
+               <property name="text">
+                <string>字体:</string>
+               </property>
+              </widget>
+             </item>
+             <item row="1" column="1">
+              <widget class="QComboBox" name="comboBox_font_1_1"/>
+             </item>
+             <item row="1" column="2">
+              <widget class="QLabel" name="label_size_1_1">
+               <property name="text">
+                <string>尺寸</string>
+               </property>
+              </widget>
+             </item>
+             <item row="1" column="3">
+              <widget class="QComboBox" name="comboBox_size_1_1"/>
+             </item>
+             <item row="2" column="0">
+              <widget class="QLabel" name="label_font_color">
+               <property name="text">
+                <string>字体颜色</string>
+               </property>
+              </widget>
+             </item>
+             <item row="2" column="1">
+              <widget class="QComboBox" name="comboBox_font_color_1_1"/>
+             </item>
+             <item row="2" column="2">
+              <widget class="QLabel" name="label_bg_color_1_1">
+               <property name="text">
+                <string>背景颜色</string>
+               </property>
+              </widget>
+             </item>
+             <item row="2" column="3">
+              <widget class="QComboBox" name="comboBox_bg_color"/>
+             </item>
+             <item row="3" column="0">
+              <widget class="QLabel" name="label_position_1_1">
+               <property name="text">
+                <string>位置微调</string>
+               </property>
+              </widget>
+             </item>
+             <item row="4" column="0" colspan="2">
+              <widget class="QFrame" name="frame_dpad_1_1">
+               <property name="frameShape">
+                <enum>QFrame::Shape::NoFrame</enum>
+               </property>
+               <property name="frameShadow">
+                <enum>QFrame::Shadow::Plain</enum>
+               </property>
+               <layout class="QGridLayout" name="gridLayout_dpad">
+                <item row="0" column="1">
+                 <widget class="QToolButton" name="toolButton_up_1_1">
+                  <property name="text">
+                   <string>▲</string>
+                  </property>
+                  <property name="arrowType">
+                   <enum>Qt::ArrowType::UpArrow</enum>
+                  </property>
+                 </widget>
+                </item>
+                <item row="1" column="0">
+                 <widget class="QToolButton" name="toolButton_left_1_1">
+                  <property name="text">
+                   <string>◄</string>
+                  </property>
+                  <property name="arrowType">
+                   <enum>Qt::ArrowType::LeftArrow</enum>
+                  </property>
+                 </widget>
+                </item>
+                <item row="1" column="1">
+                 <widget class="QToolButton" name="toolButton_center_1_1">
+                  <property name="text">
+                   <string>B</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="1" column="2">
+                 <widget class="QToolButton" name="toolButton_right_1_1">
+                  <property name="text">
+                   <string>►</string>
+                  </property>
+                  <property name="arrowType">
+                   <enum>Qt::ArrowType::RightArrow</enum>
+                  </property>
+                 </widget>
+                </item>
+                <item row="2" column="1">
+                 <widget class="QToolButton" name="toolButton_down_1_1">
+                  <property name="text">
+                   <string>▼</string>
+                  </property>
+                  <property name="arrowType">
+                   <enum>Qt::ArrowType::DownArrow</enum>
+                  </property>
+                 </widget>
+                </item>
+               </layout>
+              </widget>
+             </item>
+            </layout>
+           </item>
+           <item>
+            <spacer name="verticalSpacer_subtab_1_1">
+             <property name="orientation">
+              <enum>Qt::Orientation::Vertical</enum>
+             </property>
+             <property name="sizeHint" stdset="0">
+              <size>
+               <width>20</width>
+               <height>40</height>
+              </size>
+             </property>
+            </spacer>
+           </item>
+          </layout>
+         </widget>
+         <widget class="QWidget" name="sub_lang_1_2">
+          <attribute name="title">
+           <string>语言2</string>
+          </attribute>
+          <layout class="QVBoxLayout" name="verticalLayout_subtab2">
+           <item>
+            <layout class="QGridLayout" name="gridLayout_subtab_1_2">
+             <item row="0" column="0">
+              <widget class="QLabel" name="label_lang_1_2">
+               <property name="text">
+                <string>语言</string>
+               </property>
+              </widget>
+             </item>
+             <item row="0" column="1">
+              <widget class="QComboBox" name="comboBox_lang_1_2"/>
+             </item>
+             <item row="0" column="2">
+              <widget class="QCheckBox" name="checkBox_audio_source_1_2">
+               <property name="text">
+                <string>音频源</string>
+               </property>
+              </widget>
+             </item>
+             <item row="0" column="3">
+              <widget class="QComboBox" name="comboBox_subtab_1_2"/>
+             </item>
+             <item row="1" column="0">
+              <widget class="QLabel" name="label_font_1_2">
+               <property name="text">
+                <string>字体:</string>
+               </property>
+              </widget>
+             </item>
+             <item row="1" column="1">
+              <widget class="QComboBox" name="comboBox_font_1_2"/>
+             </item>
+             <item row="1" column="2">
+              <widget class="QLabel" name="label_size_1_2">
+               <property name="text">
+                <string>尺寸</string>
+               </property>
+              </widget>
+             </item>
+             <item row="1" column="3">
+              <widget class="QComboBox" name="comboBox_size_1_2"/>
+             </item>
+             <item row="2" column="0">
+              <widget class="QLabel" name="label_font_color_1_2">
+               <property name="text">
+                <string>字体颜色</string>
+               </property>
+              </widget>
+             </item>
+             <item row="2" column="1">
+              <widget class="QComboBox" name="comboBox_font_color_1_2"/>
+             </item>
+             <item row="2" column="2">
+              <widget class="QLabel" name="label_bg_color_1_2">
+               <property name="text">
+                <string>背景颜色</string>
+               </property>
+              </widget>
+             </item>
+             <item row="2" column="3">
+              <widget class="QComboBox" name="comboBox_bg_color_1_2"/>
+             </item>
+             <item row="3" column="0">
+              <widget class="QLabel" name="label_position_1_2">
+               <property name="text">
+                <string>位置微调</string>
+               </property>
+              </widget>
+             </item>
+             <item row="4" column="0" colspan="2">
+              <widget class="QFrame" name="frame_dpad_1_2">
+               <property name="frameShape">
+                <enum>QFrame::Shape::NoFrame</enum>
+               </property>
+               <property name="frameShadow">
+                <enum>QFrame::Shadow::Plain</enum>
+               </property>
+               <layout class="QGridLayout" name="gridLayout_dpad_2">
+                <item row="0" column="1">
+                 <widget class="QToolButton" name="toolButton_up_2">
+                  <property name="text">
+                   <string>▲</string>
+                  </property>
+                  <property name="arrowType">
+                   <enum>Qt::ArrowType::UpArrow</enum>
+                  </property>
+                 </widget>
+                </item>
+                <item row="1" column="0">
+                 <widget class="QToolButton" name="toolButton_left_1_2">
+                  <property name="text">
+                   <string>◄</string>
+                  </property>
+                  <property name="arrowType">
+                   <enum>Qt::ArrowType::LeftArrow</enum>
+                  </property>
+                 </widget>
+                </item>
+                <item row="1" column="1">
+                 <widget class="QToolButton" name="toolButton_center_1_2">
+                  <property name="text">
+                   <string>B</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="1" column="2">
+                 <widget class="QToolButton" name="toolButton_right_1_2">
+                  <property name="text">
+                   <string>►</string>
+                  </property>
+                  <property name="arrowType">
+                   <enum>Qt::ArrowType::RightArrow</enum>
+                  </property>
+                 </widget>
+                </item>
+                <item row="2" column="1">
+                 <widget class="QToolButton" name="toolButton_down_1_2">
+                  <property name="text">
+                   <string>▼</string>
+                  </property>
+                  <property name="arrowType">
+                   <enum>Qt::ArrowType::DownArrow</enum>
+                  </property>
+                 </widget>
+                </item>
+               </layout>
+              </widget>
+             </item>
+            </layout>
+           </item>
+           <item>
+            <spacer name="verticalSpacer_subtab_1_2">
+             <property name="orientation">
+              <enum>Qt::Orientation::Vertical</enum>
+             </property>
+             <property name="sizeHint" stdset="0">
+              <size>
+               <width>20</width>
+               <height>40</height>
+              </size>
+             </property>
+            </spacer>
+           </item>
+          </layout>
+         </widget>
+        </widget>
+       </item>
+      </layout>
+     </widget>
+     <widget class="QWidget" name="screen_2">
+      <attribute name="title">
+       <string>屏幕2</string>
+      </attribute>
+      <layout class="QVBoxLayout" name="verticalLayout_tab2">
+       <item>
+        <layout class="QHBoxLayout" name="horizontalLayout_tab_top_2">
+         <item>
+          <widget class="QCheckBox" name="activate_screen_2">
+           <property name="text">
+            <string>激活屏幕</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QCheckBox" name="activate_2nd_lang_2">
+           <property name="text">
+            <string>激活第二语言</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QLabel" name="screen_AsignTo_2">
+           <property name="text">
+            <string>此屏幕分配给:</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QComboBox" name="comboBox_screen_assign_2"/>
+         </item>
+         <item>
+          <widget class="QPushButton" name="pushButton_showscreen_2">
+           <property name="text">
+            <string>显示屏幕</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </item>
+       <item>
+        <widget class="QTabWidget" name="lang_subtabs_2">
+         <property name="currentIndex">
+          <number>0</number>
+         </property>
+         <widget class="QWidget" name="sub_lang_2_1">
+          <attribute name="title">
+           <string>语言1</string>
+          </attribute>
+          <layout class="QVBoxLayout" name="verticalLayout_subtab3">
+           <item>
+            <layout class="QGridLayout" name="gridLayout_subtab_2_1">
+             <item row="0" column="0">
+              <widget class="QLabel" name="label_lang_2_1">
+               <property name="text">
+                <string>语言</string>
+               </property>
+              </widget>
+             </item>
+             <item row="0" column="1">
+              <widget class="QComboBox" name="comboBox_lang_2_1"/>
+             </item>
+             <item row="0" column="2">
+              <widget class="QCheckBox" name="checkBox_subtab_2_1">
+               <property name="text">
+                <string>Check Box</string>
+               </property>
+              </widget>
+             </item>
+             <item row="0" column="3">
+              <widget class="QComboBox" name="comboBox_subtab_2_1"/>
+             </item>
+             <item row="1" column="0">
+              <widget class="QLabel" name="label_font_2_1">
+               <property name="text">
+                <string>字体:</string>
+               </property>
+              </widget>
+             </item>
+             <item row="1" column="1">
+              <widget class="QComboBox" name="comboBox_font_2_1"/>
+             </item>
+             <item row="1" column="2">
+              <widget class="QLabel" name="label_size_2_1">
+               <property name="text">
+                <string>尺寸</string>
+               </property>
+              </widget>
+             </item>
+             <item row="1" column="3">
+              <widget class="QComboBox" name="comboBox_size_2_1"/>
+             </item>
+             <item row="2" column="0">
+              <widget class="QLabel" name="label_font_color_2_1">
+               <property name="text">
+                <string>字体颜色</string>
+               </property>
+              </widget>
+             </item>
+             <item row="2" column="1">
+              <widget class="QComboBox" name="comboBox_font_color_2_1"/>
+             </item>
+             <item row="2" column="2">
+              <widget class="QLabel" name="label_bg_color_2_1">
+               <property name="text">
+                <string>背景颜色</string>
+               </property>
+              </widget>
+             </item>
+             <item row="2" column="3">
+              <widget class="QComboBox" name="comboBox_bg_color_2_1"/>
+             </item>
+             <item row="3" column="0">
+              <widget class="QLabel" name="label_position_2_1">
+               <property name="text">
+                <string>位置微调</string>
+               </property>
+              </widget>
+             </item>
+             <item row="4" column="0" colspan="2">
+              <widget class="QFrame" name="frame_dpad_2_1">
+               <property name="frameShape">
+                <enum>QFrame::Shape::NoFrame</enum>
+               </property>
+               <property name="frameShadow">
+                <enum>QFrame::Shadow::Plain</enum>
+               </property>
+               <layout class="QGridLayout" name="gridLayout_dpad_2_1">
+                <item row="0" column="1">
+                 <widget class="QToolButton" name="toolButton_up_2_1">
+                  <property name="text">
+                   <string>▲</string>
+                  </property>
+                  <property name="arrowType">
+                   <enum>Qt::ArrowType::UpArrow</enum>
+                  </property>
+                 </widget>
+                </item>
+                <item row="1" column="0">
+                 <widget class="QToolButton" name="toolButton_left_2_1">
+                  <property name="text">
+                   <string>◄</string>
+                  </property>
+                  <property name="arrowType">
+                   <enum>Qt::ArrowType::LeftArrow</enum>
+                  </property>
+                 </widget>
+                </item>
+                <item row="1" column="1">
+                 <widget class="QToolButton" name="toolButton_center_2_1">
+                  <property name="text">
+                   <string>B</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="1" column="2">
+                 <widget class="QToolButton" name="toolButton_right_2_1">
+                  <property name="text">
+                   <string>►</string>
+                  </property>
+                  <property name="arrowType">
+                   <enum>Qt::ArrowType::RightArrow</enum>
+                  </property>
+                 </widget>
+                </item>
+                <item row="2" column="1">
+                 <widget class="QToolButton" name="toolButton_down_2_1">
+                  <property name="text">
+                   <string>▼</string>
+                  </property>
+                  <property name="arrowType">
+                   <enum>Qt::ArrowType::DownArrow</enum>
+                  </property>
+                 </widget>
+                </item>
+               </layout>
+              </widget>
+             </item>
+            </layout>
+           </item>
+           <item>
+            <spacer name="verticalSpacer_subtab_2_1">
+             <property name="orientation">
+              <enum>Qt::Orientation::Vertical</enum>
+             </property>
+             <property name="sizeHint" stdset="0">
+              <size>
+               <width>20</width>
+               <height>40</height>
+              </size>
+             </property>
+            </spacer>
+           </item>
+          </layout>
+         </widget>
+         <widget class="QWidget" name="sub_lang_2_2">
+          <attribute name="title">
+           <string>语言2</string>
+          </attribute>
+          <layout class="QVBoxLayout" name="verticalLayout_subtab4">
+           <item>
+            <layout class="QGridLayout" name="gridLayout_subtab_2_2">
+             <item row="0" column="0">
+              <widget class="QLabel" name="label_lang_2_2">
+               <property name="text">
+                <string>语言</string>
+               </property>
+              </widget>
+             </item>
+             <item row="0" column="1">
+              <widget class="QComboBox" name="comboBox_lang_2_2"/>
+             </item>
+             <item row="0" column="2">
+              <widget class="QCheckBox" name="checkBox_subtab_2_2">
+               <property name="text">
+                <string>Check Box</string>
+               </property>
+              </widget>
+             </item>
+             <item row="0" column="3">
+              <widget class="QComboBox" name="comboBox_subtab_2_2"/>
+             </item>
+             <item row="1" column="0">
+              <widget class="QLabel" name="label_font_2_2">
+               <property name="text">
+                <string>字体:</string>
+               </property>
+              </widget>
+             </item>
+             <item row="1" column="1">
+              <widget class="QComboBox" name="comboBox_font_2_2"/>
+             </item>
+             <item row="1" column="2">
+              <widget class="QLabel" name="label_size_2_2">
+               <property name="text">
+                <string>尺寸</string>
+               </property>
+              </widget>
+             </item>
+             <item row="1" column="3">
+              <widget class="QComboBox" name="comboBox_size_2_2"/>
+             </item>
+             <item row="2" column="0">
+              <widget class="QLabel" name="label_font_color_2_2">
+               <property name="text">
+                <string>字体颜色</string>
+               </property>
+              </widget>
+             </item>
+             <item row="2" column="1">
+              <widget class="QComboBox" name="comboBox_font_color_2_2"/>
+             </item>
+             <item row="2" column="2">
+              <widget class="QLabel" name="label_bg_color_2_2">
+               <property name="text">
+                <string>背景颜色</string>
+               </property>
+              </widget>
+             </item>
+             <item row="2" column="3">
+              <widget class="QComboBox" name="comboBox_bg_color_2_2"/>
+             </item>
+             <item row="3" column="0">
+              <widget class="QLabel" name="label_position_2_2">
+               <property name="text">
+                <string>位置微调</string>
+               </property>
+              </widget>
+             </item>
+             <item row="4" column="0" colspan="2">
+              <widget class="QFrame" name="frame_dpad_2_2">
+               <property name="frameShape">
+                <enum>QFrame::Shape::NoFrame</enum>
+               </property>
+               <property name="frameShadow">
+                <enum>QFrame::Shadow::Plain</enum>
+               </property>
+               <layout class="QGridLayout" name="gridLayout_dpad_2_2">
+                <item row="0" column="1">
+                 <widget class="QToolButton" name="toolButton_up_2_2">
+                  <property name="text">
+                   <string>▲</string>
+                  </property>
+                  <property name="arrowType">
+                   <enum>Qt::ArrowType::UpArrow</enum>
+                  </property>
+                 </widget>
+                </item>
+                <item row="1" column="0">
+                 <widget class="QToolButton" name="toolButton_left_2_2">
+                  <property name="text">
+                   <string>◄</string>
+                  </property>
+                  <property name="arrowType">
+                   <enum>Qt::ArrowType::LeftArrow</enum>
+                  </property>
+                 </widget>
+                </item>
+                <item row="1" column="1">
+                 <widget class="QToolButton" name="toolButton_center_2_2">
+                  <property name="text">
+                   <string>B</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="1" column="2">
+                 <widget class="QToolButton" name="toolButton_right_2_2">
+                  <property name="text">
+                   <string>►</string>
+                  </property>
+                  <property name="arrowType">
+                   <enum>Qt::ArrowType::RightArrow</enum>
+                  </property>
+                 </widget>
+                </item>
+                <item row="2" column="1">
+                 <widget class="QToolButton" name="toolButton_down_2_2">
+                  <property name="text">
+                   <string>▼</string>
+                  </property>
+                  <property name="arrowType">
+                   <enum>Qt::ArrowType::DownArrow</enum>
+                  </property>
+                 </widget>
+                </item>
+               </layout>
+              </widget>
+             </item>
+            </layout>
+           </item>
+           <item>
+            <spacer name="verticalSpacer_subtab_2_2">
+             <property name="orientation">
+              <enum>Qt::Orientation::Vertical</enum>
+             </property>
+             <property name="sizeHint" stdset="0">
+              <size>
+               <width>20</width>
+               <height>40</height>
+              </size>
+             </property>
+            </spacer>
+           </item>
+          </layout>
+         </widget>
+        </widget>
+       </item>
+      </layout>
+     </widget>
+     <widget class="QWidget" name="screen_3">
+      <attribute name="title">
+       <string>屏幕3</string>
+      </attribute>
+      <layout class="QVBoxLayout" name="verticalLayout_tab3">
+       <item>
+        <layout class="QHBoxLayout" name="horizontalLayout_tab3_top">
+         <item>
+          <widget class="QCheckBox" name="activate_screen_3">
+           <property name="text">
+            <string>激活屏幕</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QCheckBox" name="activate_2nd_lang_3">
+           <property name="text">
+            <string>激活第二语言</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QLabel" name="label_tab3_assign">
+           <property name="text">
+            <string>此屏幕分配给:</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QComboBox" name="comboBox_screen_assign_3">
+           <property name="currentText">
+            <string/>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QPushButton" name="pushButton_showscreen_3">
+           <property name="text">
+            <string>显示屏幕</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </item>
+       <item>
+        <widget class="QTabWidget" name="lang_subtabs_3">
+         <widget class="QWidget" name="sub_lang_3_1">
+          <attribute name="title">
+           <string>语言1</string>
+          </attribute>
+          <layout class="QVBoxLayout" name="verticalLayout_subtab5">
+           <item>
+            <layout class="QGridLayout" name="gridLayout_subtab_3_1">
+             <item row="0" column="0">
+              <widget class="QLabel" name="label_lang_3_1">
+               <property name="text">
+                <string>语言</string>
+               </property>
+              </widget>
+             </item>
+             <item row="0" column="1">
+              <widget class="QComboBox" name="comboBox_lang_3_1"/>
+             </item>
+             <item row="0" column="2">
+              <widget class="QCheckBox" name="checkBox_subtab_3_1">
+               <property name="text">
+                <string>Check Box</string>
+               </property>
+              </widget>
+             </item>
+             <item row="0" column="3">
+              <widget class="QComboBox" name="comboBox_subtab_3_1"/>
+             </item>
+             <item row="1" column="0">
+              <widget class="QLabel" name="label_font_3_1">
+               <property name="text">
+                <string>字体:</string>
+               </property>
+              </widget>
+             </item>
+             <item row="1" column="1">
+              <widget class="QComboBox" name="comboBox_font_3_1"/>
+             </item>
+             <item row="1" column="2">
+              <widget class="QLabel" name="label_size_3_1">
+               <property name="text">
+                <string>尺寸</string>
+               </property>
+              </widget>
+             </item>
+             <item row="1" column="3">
+              <widget class="QComboBox" name="comboBox_size_3_1"/>
+             </item>
+             <item row="2" column="0">
+              <widget class="QLabel" name="label_font_color_3_1">
+               <property name="text">
+                <string>字体颜色</string>
+               </property>
+              </widget>
+             </item>
+             <item row="2" column="1">
+              <widget class="QComboBox" name="comboBox_font_color_3_1"/>
+             </item>
+             <item row="2" column="2">
+              <widget class="QLabel" name="label_bg_color_3_1">
+               <property name="text">
+                <string>背景颜色</string>
+               </property>
+              </widget>
+             </item>
+             <item row="2" column="3">
+              <widget class="QComboBox" name="comboBox_bg_color_3_1"/>
+             </item>
+             <item row="3" column="0">
+              <widget class="QLabel" name="label_position_3_1">
+               <property name="text">
+                <string>位置微调</string>
+               </property>
+              </widget>
+             </item>
+             <item row="4" column="0" colspan="2">
+              <widget class="QFrame" name="frame_dpad_3_1">
+               <property name="frameShape">
+                <enum>QFrame::Shape::NoFrame</enum>
+               </property>
+               <property name="frameShadow">
+                <enum>QFrame::Shadow::Plain</enum>
+               </property>
+               <layout class="QGridLayout" name="gridLayout_dpad_3_1">
+                <item row="0" column="1">
+                 <widget class="QToolButton" name="toolButton_up_3_1">
+                  <property name="text">
+                   <string>▲</string>
+                  </property>
+                  <property name="arrowType">
+                   <enum>Qt::ArrowType::UpArrow</enum>
+                  </property>
+                 </widget>
+                </item>
+                <item row="1" column="0">
+                 <widget class="QToolButton" name="toolButton_left_3_1">
+                  <property name="text">
+                   <string>◄</string>
+                  </property>
+                  <property name="arrowType">
+                   <enum>Qt::ArrowType::LeftArrow</enum>
+                  </property>
+                 </widget>
+                </item>
+                <item row="1" column="1">
+                 <widget class="QToolButton" name="toolButton_center_3_1">
+                  <property name="text">
+                   <string>B</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="1" column="2">
+                 <widget class="QToolButton" name="toolButton_right_3_1">
+                  <property name="text">
+                   <string>►</string>
+                  </property>
+                  <property name="arrowType">
+                   <enum>Qt::ArrowType::RightArrow</enum>
+                  </property>
+                 </widget>
+                </item>
+                <item row="2" column="1">
+                 <widget class="QToolButton" name="toolButton_down_3_1">
+                  <property name="text">
+                   <string>▼</string>
+                  </property>
+                  <property name="arrowType">
+                   <enum>Qt::ArrowType::DownArrow</enum>
+                  </property>
+                 </widget>
+                </item>
+               </layout>
+              </widget>
+             </item>
+            </layout>
+           </item>
+           <item>
+            <spacer name="verticalSpacer_subtab_3_1">
+             <property name="orientation">
+              <enum>Qt::Orientation::Vertical</enum>
+             </property>
+             <property name="sizeHint" stdset="0">
+              <size>
+               <width>20</width>
+               <height>40</height>
+              </size>
+             </property>
+            </spacer>
+           </item>
+          </layout>
+         </widget>
+         <widget class="QWidget" name="sub_lang_3_2">
+          <attribute name="title">
+           <string>语言2</string>
+          </attribute>
+          <layout class="QVBoxLayout" name="verticalLayout_subtab6">
+           <item>
+            <layout class="QGridLayout" name="gridLayout_subtab_3_2">
+             <item row="0" column="0">
+              <widget class="QLabel" name="label_lang_3_2">
+               <property name="text">
+                <string>语言</string>
+               </property>
+              </widget>
+             </item>
+             <item row="0" column="1">
+              <widget class="QComboBox" name="comboBox_lang_3_2"/>
+             </item>
+             <item row="0" column="2">
+              <widget class="QCheckBox" name="checkBox_subtab_3_2">
+               <property name="text">
+                <string>Check Box</string>
+               </property>
+              </widget>
+             </item>
+             <item row="0" column="3">
+              <widget class="QComboBox" name="comboBox_subtab_3_2"/>
+             </item>
+             <item row="1" column="0">
+              <widget class="QLabel" name="label_font_3_2">
+               <property name="text">
+                <string>字体:</string>
+               </property>
+              </widget>
+             </item>
+             <item row="1" column="1">
+              <widget class="QComboBox" name="comboBox_font_3_2"/>
+             </item>
+             <item row="1" column="2">
+              <widget class="QLabel" name="label_size_3_2">
+               <property name="text">
+                <string>尺寸</string>
+               </property>
+              </widget>
+             </item>
+             <item row="1" column="3">
+              <widget class="QComboBox" name="comboBox_size_3_2"/>
+             </item>
+             <item row="2" column="0">
+              <widget class="QLabel" name="label_font_color_3_2">
+               <property name="text">
+                <string>字体颜色</string>
+               </property>
+              </widget>
+             </item>
+             <item row="2" column="1">
+              <widget class="QComboBox" name="comboBox_font_color_3_2"/>
+             </item>
+             <item row="2" column="2">
+              <widget class="QLabel" name="label_bg_color_3_2">
+               <property name="text">
+                <string>背景颜色</string>
+               </property>
+              </widget>
+             </item>
+             <item row="2" column="3">
+              <widget class="QComboBox" name="comboBox_bg_color_3_2"/>
+             </item>
+             <item row="3" column="0">
+              <widget class="QLabel" name="label_position_3_2">
+               <property name="text">
+                <string>位置微调</string>
+               </property>
+              </widget>
+             </item>
+             <item row="4" column="0" colspan="2">
+              <widget class="QFrame" name="frame_dpad_3_2">
+               <property name="frameShape">
+                <enum>QFrame::Shape::NoFrame</enum>
+               </property>
+               <property name="frameShadow">
+                <enum>QFrame::Shadow::Plain</enum>
+               </property>
+               <layout class="QGridLayout" name="gridLayout_dpad_3_2">
+                <item row="0" column="1">
+                 <widget class="QToolButton" name="toolButton_up_3_2">
+                  <property name="text">
+                   <string>▲</string>
+                  </property>
+                  <property name="arrowType">
+                   <enum>Qt::ArrowType::UpArrow</enum>
+                  </property>
+                 </widget>
+                </item>
+                <item row="1" column="0">
+                 <widget class="QToolButton" name="toolButton_left_3_2">
+                  <property name="text">
+                   <string>◄</string>
+                  </property>
+                  <property name="arrowType">
+                   <enum>Qt::ArrowType::LeftArrow</enum>
+                  </property>
+                 </widget>
+                </item>
+                <item row="1" column="1">
+                 <widget class="QToolButton" name="toolButton_center_3_2">
+                  <property name="text">
+                   <string>B</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="1" column="2">
+                 <widget class="QToolButton" name="toolButton_right_3_2">
+                  <property name="text">
+                   <string>►</string>
+                  </property>
+                  <property name="arrowType">
+                   <enum>Qt::ArrowType::RightArrow</enum>
+                  </property>
+                 </widget>
+                </item>
+                <item row="2" column="1">
+                 <widget class="QToolButton" name="toolButton_down_3_2">
+                  <property name="text">
+                   <string>▼</string>
+                  </property>
+                  <property name="arrowType">
+                   <enum>Qt::ArrowType::DownArrow</enum>
+                  </property>
+                 </widget>
+                </item>
+               </layout>
+              </widget>
+             </item>
+            </layout>
+           </item>
+           <item>
+            <spacer name="verticalSpacer_subtab_3_2">
+             <property name="orientation">
+              <enum>Qt::Orientation::Vertical</enum>
+             </property>
+             <property name="sizeHint" stdset="0">
+              <size>
+               <width>20</width>
+               <height>40</height>
+              </size>
+             </property>
+            </spacer>
+           </item>
+          </layout>
+         </widget>
+        </widget>
+       </item>
+      </layout>
+     </widget>
+    </widget>
+   </item>
+  </layout>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>

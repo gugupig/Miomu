@@ -153,8 +153,11 @@ class Director(QObject):
         self.is_locked: bool = False
         self.lock_reason: str = ""
         
+        # === 模块引用 ===
+        self.aligner = None  # Aligner实例引用，用于双向通信
+        self.cues_list: List[Cue] = []  # Cue列表，用于索引查找
+        
         # === 提案管理 ===
-        self.pending_proposals: List[CueProposal] = []
         self.proposal_history: List[CueProposal] = []
         self.max_history_size: int = 100
         
@@ -190,19 +193,62 @@ class Director(QObject):
     
     # === 公共API - 接收提案 ===
     
-    @Slot(Cue, float, str)
-    def receive_aligner_proposal(self, target_cue: Cue, confidence: float, reason: str = ""):
-        """接收来自Aligner的Cue切换提案"""
-        proposal = CueProposal(
-            target_cue=target_cue,
-            source=ProposalSource.ALIGNER,
-            priority=ProposalPriority.NORMAL,
-            confidence=confidence,
-            reason=reason or "Aligner suggestion",
-            timestamp=datetime.now(),
-            metadata={"aligner_score": confidence}
-        )
-        self._process_proposal(proposal)
+    @Slot(object)
+    def receive_match_proposal(self, match_proposal):
+        """接收来自Aligner的MatchProposal对象（新接口）"""
+        from app.core.aligner.Aligner import MatchProposal
+        
+        # 检查是否是空提案
+        if isinstance(match_proposal, MatchProposal):
+            if match_proposal.target_cue.id == -1:
+                print("[Director] Received empty proposal from Aligner - no action taken")
+                return
+            
+            # 转换MatchProposal为CueProposal
+            proposal = CueProposal(
+                target_cue=match_proposal.target_cue,
+                source=ProposalSource.ALIGNER,
+                priority=ProposalPriority.NORMAL,
+                confidence=match_proposal.confidence_score / 100.0,  # 转换为0-1范围
+                reason=f"{match_proposal.strategy_source}: Auto-aligned",
+                timestamp=datetime.now(),
+                metadata={
+                    "strategy_source": match_proposal.strategy_source,
+                    "matched_words": match_proposal.matched_words,
+                    "matched_phonemes": match_proposal.matched_phonemes,
+                    "original_confidence": match_proposal.confidence_score
+                }
+            )
+            self._process_proposal(proposal)
+        else:
+            print(f"[Director] Warning: Expected MatchProposal, got {type(match_proposal)}")
+    
+    @Slot()
+    def notify_aligner_current_cue(self):
+        """通知Aligner当前的Cue索引（用于同步状态）"""
+        if self.aligner and self.current_cue:
+            cue_index = self._find_cue_index(self.current_cue)
+            if cue_index is not None:
+                self.aligner.update_current_cue_index(cue_index)
+    
+    def set_aligner(self, aligner):
+        """设置Aligner引用，用于双向通信"""
+        self.aligner = aligner
+        if aligner:
+            # 连接Aligner的suggestionReady信号到新的槽函数
+            aligner.suggestionReady.connect(self.receive_match_proposal)
+            print("[Director] Connected to Aligner via suggestionReady signal")
+    
+    def set_cues_list(self, cues: List[Cue]):
+        """设置Cue列表，用于索引查找"""
+        self.cues_list = cues
+    
+    def _find_cue_index(self, target_cue: Cue) -> Optional[int]:
+        """在Cue列表中查找指定Cue的索引"""
+        for i, cue in enumerate(self.cues_list):
+            if cue.id == target_cue.id:
+                return i
+        return None
     
     @Slot(Cue, str)
     def receive_manual_proposal(self, target_cue: Cue, reason: str = ""):
@@ -373,7 +419,6 @@ class Director(QObject):
             "state": self.state.value,
             "is_locked": self.is_locked,
             "lock_reason": self.lock_reason,
-            "pending_proposals_count": len(self.pending_proposals),
             "unlock_timer_active": self.unlock_timer.isActive(),
         }
     
@@ -479,96 +524,7 @@ class Director(QObject):
             self.decisionMade.emit("direct", proposal)
         else:
             print(f"[Director] No change needed: already at Cue {proposal.target_cue.id}")
-    
-    def _cleanup_old_proposals(self):
-        """清理旧的低优先级提案"""
-        # 按优先级和时间排序，移除最不重要的提案
-        self.pending_proposals.sort(key=lambda p: (p.priority.value, p.timestamp), reverse=True)
-        while len(self.pending_proposals) >= self.config["max_concurrent_proposals"]:
-            removed = self.pending_proposals.pop()
-            self.proposalRejected.emit(removed, "Queue full, removed low priority proposal")
-    
-    def _process_proposals(self):
-        """处理所有待处理的提案"""
-        if not self.pending_proposals:
-            return
-        
-        self.state = DirectorState.PROCESSING
-        self.stateChanged.emit(self.state)
-        
-        try:
-            # 选择最佳提案
-            chosen_proposal = self._select_best_proposal()
-            
-            if chosen_proposal:
-                # 检查是否需要切换
-                if (not self.current_cue or 
-                    chosen_proposal.target_cue.id != self.current_cue.id):
-                    
-                    # 执行切换
-                    self._execute_cue_change(chosen_proposal)
-                else:
-                    print(f"[Director] No change needed: already at Cue {chosen_proposal.target_cue.id}")
-            
-            # 记录所有提案到历史
-            self.proposal_history.extend(self.pending_proposals)
-            if len(self.proposal_history) > self.max_history_size:
-                self.proposal_history = self.proposal_history[-self.max_history_size:]
-            
-            # 清空待处理提案
-            self.pending_proposals.clear()
-            
-        finally:
-            self.state = DirectorState.IDLE
-            self.stateChanged.emit(self.state)
-    
-    def _select_best_proposal(self) -> Optional[CueProposal]:
-        """从待处理提案中选择最佳提案"""
-        if not self.pending_proposals:
-            return None
-        
-        # 检查冲突提案
-        if len(self.pending_proposals) > 1:
-            chosen = self._resolve_conflicts()
-            if chosen:
-                return chosen
-        
-        # 单个提案或冲突解决后的结果
-        if self.pending_proposals:
-            chosen = self.pending_proposals[0]
-            self.decisionMade.emit("single", chosen)
-            return chosen
-        
-        return None
-    
-    def _resolve_conflicts(self) -> Optional[CueProposal]:
-        """解决冲突提案"""
-        # 按优先级分组
-        priority_groups = {}
-        for proposal in self.pending_proposals:
-            priority = proposal.priority.value
-            if priority not in priority_groups:
-                priority_groups[priority] = []
-            priority_groups[priority].append(proposal)
-        
-        # 选择最高优先级组
-        highest_priority = max(priority_groups.keys())
-        candidates = priority_groups[highest_priority]
-        
-        if len(candidates) == 1:
-            chosen = candidates[0]
-        else:
-            # 在同优先级内按置信度选择
-            chosen = max(candidates, key=lambda p: p.confidence)
-        
-        # 发射冲突解决信号
-        conflicting = [p for p in self.pending_proposals if p != chosen]
-        if conflicting:
-            self.conflictResolved.emit(conflicting, chosen)
-        
-        self.decisionMade.emit("conflict_resolved", chosen)
-        return chosen
-    
+
     def _execute_cue_change(self, proposal: CueProposal):
         """执行Cue切换"""
         old_cue = self.current_cue
@@ -580,6 +536,9 @@ class Director(QObject):
         
         print(f"[Director] Cue change executed: {old_cue.id if old_cue else 'None'} -> "
               f"{proposal.target_cue.id} ({reason})")
+        
+        # 通知Aligner当前Cue已改变
+        self.notify_aligner_current_cue()
         
         # 根据提案类型设置临时锁定
         if proposal.source == ProposalSource.ALIGNER:
@@ -625,120 +584,11 @@ class Director(QObject):
     def get_proposal_history(self, limit: int = 20) -> List[CueProposal]:
         """获取提案历史记录"""
         return self.proposal_history[-limit:]
-    
-    def get_pending_proposals(self) -> List[CueProposal]:
-        """获取当前待处理提案"""
-        return self.pending_proposals.copy()
-    
+
     def clear_proposal_history(self):
         """清空提案历史"""
         self.proposal_history.clear()
         print("[Director] Proposal history cleared")
-
-
-# === 预定义上下文事件处理器 ===
-
-class LockingHandler(ContextHandler):
-    """锁定控制处理器 - 响应锁定/解锁事件"""
-    
-    def __init__(self):
-        super().__init__("locking_handler")
-    
-    def handle(self, event: SituationEvent, director: 'Director') -> bool:
-        if event.event_type == "lock_request":
-            reason = event.event_data.get('reason', 'Context event lock')
-            duration = event.event_data.get('duration_ms', 0)
-            director.lock_director(reason, duration)
-            return True
-        elif event.event_type == "unlock_request":
-            director.unlock_director()
-            return True
-        return False
-    
-    def can_handle(self, event_type: str) -> bool:
-        return event_type in ["lock_request", "unlock_request"]
-
-
-class ConfigurationHandler(ContextHandler):
-    """配置修改处理器 - 动态调整配置参数"""
-    
-    def __init__(self):
-        super().__init__("configuration_handler")
-    
-    def handle(self, event: SituationEvent, director: 'Director') -> bool:
-        if event.event_type == "config_change":
-            config_updates = event.event_data.get('config_updates', {})
-            for key, value in config_updates.items():
-                director.update_config(key, value)
-            return True
-        elif event.event_type == "confidence_adjustment":
-            # 调整置信度阈值
-            new_threshold = event.event_data.get('threshold', 0.3)
-            director.update_config('min_confidence_threshold', new_threshold)
-            return True
-        return False
-    
-    def can_handle(self, event_type: str) -> bool:
-        return event_type in ["config_change", "confidence_adjustment"]
-
-
-class ProposalFilterHandler(ContextHandler):
-    """提案过滤处理器 - 临时屏蔽某些提案来源"""
-    
-    def __init__(self):
-        super().__init__("proposal_filter_handler")
-        self.blocked_sources = set()
-        self.original_process_proposal = None
-    
-    def handle(self, event: SituationEvent, director: 'Director') -> bool:
-        if event.event_type == "block_source":
-            source = event.event_data.get('source')
-            if source:
-                self.blocked_sources.add(source)
-                self._patch_director(director)
-                return True
-        elif event.event_type == "unblock_source":
-            source = event.event_data.get('source')
-            if source and source in self.blocked_sources:
-                self.blocked_sources.remove(source)
-                if not self.blocked_sources:
-                    self._unpatch_director(director)
-                return True
-        elif event.event_type == "clear_blocks":
-            self.blocked_sources.clear()
-            self._unpatch_director(director)
-            return True
-        return False
-    
-    def _patch_director(self, director: 'Director'):
-        """替换Director的提案处理方法以添加过滤"""
-        if self.original_process_proposal is None:
-            self.original_process_proposal = director._process_proposal
-            
-            def filtered_process_proposal(proposal):
-                if proposal.source.value not in self.blocked_sources:
-                    if self.original_process_proposal:
-                        return self.original_process_proposal(proposal)
-                else:
-                    director.proposalRejected.emit(proposal, f"Source {proposal.source.value} is temporarily blocked")
-            
-            director._process_proposal = filtered_process_proposal
-    
-    def _unpatch_director(self, director: 'Director'):
-        """恢复Director的原始提案处理方法"""
-        if self.original_process_proposal is not None:
-            director._process_proposal = self.original_process_proposal
-            self.original_process_proposal = None
-    
-    def can_handle(self, event_type: str) -> bool:
-        return event_type in ["block_source", "unblock_source", "clear_blocks"]
-
-
-# === 工厂函数和便利接口 ===
-
-def create_director(current_cue: Optional[Cue] = None) -> Director:
-    """创建Director实例的工厂函数"""
-    return Director(current_cue=current_cue)
 
 
 # === 预定义配置 ===

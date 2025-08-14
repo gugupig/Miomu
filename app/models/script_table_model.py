@@ -222,14 +222,19 @@ class ScriptTableModel(QAbstractTableModel):
                     return self.extra_columns[language][row] if row < len(self.extra_columns[language]) else ""
                     
         elif role == Qt.ItemDataRole.BackgroundRole:
-            # 高亮显示
+            # 高亮显示 - 增强视觉效果
             if self.is_row_highlighted(actual_row):
-                return QBrush(QColor(100, 200, 100, 100))
+                # 使用醒目的蓝色背景
+                return QBrush(QColor(0, 120, 215, 200))  # 更高不透明度的蓝色
             # 只读列使用不同背景色：只有ID列是只读的
             if col == self.COLUMN_ID:
                 return QBrush(QColor(240, 240, 240))
                 
         elif role == Qt.ItemDataRole.ForegroundRole:
+            # 高亮行的文字颜色 - 优先级最高
+            if self.is_row_highlighted(actual_row):
+                return QBrush(QColor(255, 255, 255))  # 白色文字，确保在蓝色背景上清晰可见
+            
             # 角色颜色显示 - ID列和角色列使用相同颜色
             if self.character_color_manager and (col == self.COLUMN_ID or col == self.COLUMN_CHARACTER):
                 character = cue.character
@@ -242,6 +247,13 @@ class ScriptTableModel(QAbstractTableModel):
                 return QBrush(QColor(color))
                 
         elif role == Qt.ItemDataRole.FontRole:
+            # 高亮行使用粗体字 - 优先级最高
+            if self.is_row_highlighted(actual_row):
+                font = QFont()
+                font.setBold(True)
+                font.setPointSize(font.pointSize() + 1)  # 稍微增大字体
+                return font
+            
             # 角色名称使用粗体
             if col == self.COLUMN_CHARACTER:
                 font = QFont()
@@ -452,6 +464,40 @@ class ScriptTableModel(QAbstractTableModel):
             self.cueAdded.emit(index)
             
             logging.info(f"添加新台词: ID={new_id}, 角色='{character}', 位置={index}")
+            return True
+            
+        except Exception as e:
+            logging.error(f"添加台词失败: {e}")
+            return False
+            
+    def add_cue_at_position(self, character: str = "", line: str = "", index: Optional[int] = None) -> bool:
+        """在指定位置添加新台词"""
+        try:
+            # 创建新台词，暂时使用临时ID
+            new_cue = Cue(
+                id=0,  # 临时ID，稍后会重新分配
+                character=character,
+                line=line,
+                phonemes="",  # 需要重新生成
+                character_cue_index=-1  # 临时值，稍后会重新计算
+            )
+            
+            # 确定插入位置
+            if index is None:
+                index = len(self._cues)
+            else:
+                index = max(0, min(index, len(self._cues)))
+                
+            # 插入数据
+            self.beginInsertRows(QModelIndex(), index, index)
+            self._cues.insert(index, new_cue)
+            self.endInsertRows()
+            
+            self._modified = True
+            self.dataModified.emit()
+            self.cueAdded.emit(index)
+            
+            logging.info(f"在位置 {index} 添加新台词，等待重新编号")
             return True
             
         except Exception as e:
@@ -819,10 +865,14 @@ class ScriptTableModel(QAbstractTableModel):
         """高亮指定行"""
         if 0 <= row < len(self._cues):
             self._highlighted_rows.add(row)
-            # 通知视图更新整行
+            # 通知视图更新整行的所有视觉属性
             left_index = self.index(row, 0)
             right_index = self.index(row, self.columnCount() - 1)
-            self.dataChanged.emit(left_index, right_index, [Qt.ItemDataRole.BackgroundRole])
+            self.dataChanged.emit(left_index, right_index, [
+                Qt.ItemDataRole.BackgroundRole, 
+                Qt.ItemDataRole.ForegroundRole,
+                Qt.ItemDataRole.FontRole
+            ])
             
     def clear_highlighting(self):
         """清除所有高亮"""
@@ -830,11 +880,15 @@ class ScriptTableModel(QAbstractTableModel):
             highlighted_rows = list(self._highlighted_rows)
             self._highlighted_rows.clear()
             
-            # 通知视图更新这些行
+            # 通知视图更新这些行的所有视觉属性
             for row in highlighted_rows:
                 left_index = self.index(row, 0)
                 right_index = self.index(row, self.columnCount() - 1)
-                self.dataChanged.emit(left_index, right_index, [Qt.ItemDataRole.BackgroundRole])
+                self.dataChanged.emit(left_index, right_index, [
+                    Qt.ItemDataRole.BackgroundRole, 
+                    Qt.ItemDataRole.ForegroundRole,
+                    Qt.ItemDataRole.FontRole
+                ])
                 
     def is_row_highlighted(self, row: int) -> bool:
         """检查行是否被高亮"""

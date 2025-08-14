@@ -31,7 +31,11 @@
     "MOUSSAILLON": {
       "color": "#FF9FF3",
       "is_system": false
+    },
+    "L‘HOMME": {
+      "color": "#54A0FF",
+      "is_system": false
     }
   },
-  "color_index": 6
+  "color_index": 7
 }
